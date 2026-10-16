@@ -25,6 +25,7 @@ import {
 import { requireTbl, type TblLang } from '../i18n/lang.ts'
 import { LineGlide } from './line-glide.ts'
 import { drawXpBar } from './xp-bar.ts'
+import { drawAutoCombatBadge } from './auto-combat-badge.ts'
 import type { GroundItemEnhancementsConfig } from '../settings/client-settings.ts'
 import {
   CHAT_OVERLAY_LINE_HEIGHT,
@@ -134,6 +135,7 @@ export function hudRepaintUnchanged(hud: HudManager, nowMs: number): boolean {
     internal.hudCanvas.height,
     hud.mouseX,
     hud.mouseY,
+    hud.autoCombatBadge?.on ?? -1,
     // On the dedicated cursor layer the animation cell no longer touches the
     // HUD canvas, so it stops participating in the skip signature there.
     ...(internal.cursorCanvas !== null ? [] : [cursorInfo.frame?.x ?? -1, cursorInfo.frame?.y ?? -1]),
@@ -692,6 +694,7 @@ export function renderHudFrame(
 
   // 2b. Top-Left Real-Time Chat & Event Message Stream Overlay (`D2Client.dll` `0x6fb2b730` `MSG_DrawChatOverlay`)
   hud.renderChatOverlay(ctx, profile.width, nowMs)
+  if (hud.autoCombatBadge !== null) drawAutoCombatBadge(ctx, hud.font, hud.autoCombatBadge, barOffsetX, barOffsetY, hud.lang === 'ENG' ? 'ENG' : 'CHI')
   if (hud.showXpBar && hud.leftPanel === 'none' && hud.rightPanel === 'none' && !hud.worldPanels.escapeMenuOpen) {
     drawXpBar(ctx, hud.font, internal.buildControlBarState(), profile.width, hud.lang === 'ENG' ? 'ENG' : 'CHI')
   }

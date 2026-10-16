@@ -586,6 +586,10 @@ export async function startPlayApp(options?: {
       isEnabled: () => session.commandMapper.autoGoldPickup,
       setEnabled: (enabled) => void (session.commandMapper.autoGoldPickup = enabled),
     },
+    autoCombat: {
+      getKey: () => session.commandMapper.autoCombatKey,
+      setKey: (key) => void (session.commandMapper.autoCombatKey = key),
+    },
   })
   const pluginMenu = new PluginMenu({
     host: plugins,

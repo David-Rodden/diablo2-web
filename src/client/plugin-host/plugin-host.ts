@@ -44,6 +44,7 @@ import {
   type PluginInstance,
   type PluginLogger,
   type PluginQuickCastPort,
+  type PluginAutoCombatPort,
   type PluginTogglePort,
   type PluginSessionView,
   type PluginStatus,
@@ -127,6 +128,7 @@ export interface PluginHostOptions {
   readonly stashDepositAll?: PluginTogglePort | null | undefined
   readonly xpBar?: PluginTogglePort | null | undefined
   readonly autoGoldPickup?: PluginTogglePort | null | undefined
+  readonly autoCombat?: PluginAutoCombatPort | null | undefined
 }
 
 const TOGGLE_PORT_NAMES = ['quickCast', 'dragInteract', 'smoothText', 'stashDepositAll', 'xpBar', 'autoGoldPickup'] as const
@@ -163,6 +165,7 @@ export class PluginHost {
   private fallbackAllowedViewports: readonly ViewportResolution[] =
     NATIVE_113C_VIEWPORT_RESOLUTIONS
   private readonly unsubConfig: () => void
+  private readonly autoCombatPort: PluginAutoCombatPort | null
   private readonly togglePorts: ReadonlyMap<TogglePortName, { readonly port: PluginTogglePort | null; readonly claims: Set<string> }>
   private ready = false
   private destroyed = false
@@ -172,6 +175,7 @@ export class PluginHost {
     validatePluginRegistry(options.plugins)
     this.session = options.session
     this.toolbar = options.toolbar ?? null
+    this.autoCombatPort = options.autoCombat ?? null
     this.togglePorts = new Map(TOGGLE_PORT_NAMES.map((name) => [name, { port: options[name] ?? null, claims: new Set<string>() }]))
     this.settingsStore = options.settingsStore ?? getGlobalSettingsStore()
     this.enforceClientDefaults = options.enforceClientDefaults ?? false
@@ -517,6 +521,15 @@ export class PluginHost {
         port.setEnabled(true)
       },
     }
+  }
+
+  private createAutoCombatPort(pluginId: string): PluginAutoCombatPort {
+    const port = this.autoCombatPort
+    const requirePort = (): PluginAutoCombatPort => {
+      if (!port) throw new Error(`[plugin-host] autoCombat port is not wired by the composition root (plugin "${pluginId}")`)
+      return port
+    }
+    return { getKey: () => port?.getKey() ?? null, setKey: (key) => requirePort().setKey(key) }
   }
 
   private createTogglePorts(record: InternalPluginRecord, isDisposed: () => boolean): Record<TogglePortName, PluginTogglePort> {
@@ -1430,6 +1443,7 @@ export class PluginHost {
       })(),
       client: this.createClientCapabilities(record, () => contextDisposed),
       ...this.createTogglePorts(record, () => contextDisposed),
+      autoCombat: this.createAutoCombatPort(record.plugin.id),
       lang: (() => {
         const subscribe = (fn: (lang: GameLang) => void): (() => void) => {
           if (contextDisposed) {

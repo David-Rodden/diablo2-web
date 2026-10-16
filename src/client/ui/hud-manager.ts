@@ -461,6 +461,7 @@ export class HudManager {
   showPartyPortraits = true
   helpOverlayOpen = false
   showXpBar = false
+  autoCombatBadge: { readonly on: boolean; readonly key: string } | null = null
   currentFps = 0
   pingMs = 0
   trade: any = null
