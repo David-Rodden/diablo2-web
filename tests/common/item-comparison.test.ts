@@ -43,4 +43,36 @@ describe('item comparison', () => {
     expect(upgradeVerdict(bigSword, { weapon1: sword, weapon2: shield }, usable)).toBe('much-better')
     expect(upgradeVerdict(twoHander, { weapon1: sword, weapon2: shield }, usable)).toBe('unsure')
   })
+
+  describe('for your class and build', () => {
+    const NEC = 2
+    const necro = (points: Record<number, number>) => ({ classIndex: NEC, skillPoints: new Map(Object.entries(points).map(([id, p]) => [Number(id), p])) })
+    const summoner = necro({ 70: 10, 69: 5 })
+    const wand = (mods: ReturnType<typeof stat>[], min = 2, max = 4) => item({ allowedSlots: ['weapon1'], oneHandDamage: { min, max }, mods })
+    const wear = (candidate: UiInventoryItem, current: UiInventoryItem, build = summoner) => upgradeVerdict(candidate, { weapon1: current }, { ...usable, build })
+
+    it('values +skills to your own class and ignores other classes', () => {
+      expect(wear(wand([stat(83, 1, NEC)]), wand([]))).toBe('better')
+      expect(wear(wand([stat(83, 2, 4)]), wand([]))).toBeNull()
+    })
+
+    it('counts a skill tab only if you have points in it', () => {
+      const summoning = stat(188, 2, NEC * 8 + 2)
+      const curses = stat(188, 2, NEC * 8 + 0)
+      expect(wear(wand([summoning]), wand([]))).toBe('better')
+      expect(wear(wand([curses]), wand([]))).toBeNull()
+    })
+
+    it('counts single-skill bonuses only for skills you use', () => {
+      expect(wear(wand([stat(107, 3, 70)]), wand([]))).toBe('better')
+      expect(wear(wand([stat(107, 3, 74)]), wand([]))).toBeNull()
+    })
+
+    it('ignores weapon damage and attack-only stats for a caster build', () => {
+      expect(wear(wand([], 20, 30), wand([stat(83, 1, NEC)]))).toBeNull()
+      expect(wear(wand([stat(19, 50), stat(83, 1, NEC)]), wand([stat(83, 1, NEC)]))).toBeNull()
+      expect(wear(wand([], 20, 30), wand([]), necro({ 0: 0 }))).toBe('much-better')
+    })
+  })
 })
+

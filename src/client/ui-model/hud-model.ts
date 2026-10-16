@@ -444,6 +444,10 @@ export class HudModel implements HudCommandSink {
     this.boundHudInstance = hud
     hud.commandSink = this
     hud.resolveGroundItem = (unitId) => this.world.containers.ground.get(unitId)
+    hud.resolveBuild = () => ({
+      classIndex: this.world.self.charClass ?? -1,
+      skillPoints: new Map([...this.world.self.skillEntries.values()].map((s) => [s.skillId, s.baseLevel ?? s.level])),
+    })
     hud.questAlert = this.world.questLog
     if (this.uiSound) {
       hud.onPlayUiSound = (soundId) => {
