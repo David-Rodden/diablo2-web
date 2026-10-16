@@ -95,6 +95,9 @@ export const CORPSE_TARGET_SKILL_IDS = new Set<number>([
 export const ALLY_OR_PET_TARGET_SKILL_IDS = new Set<number>(TARGET_PET_OR_ALLY_SKILL_IDS_113C)
 
 const ITEM_PICKUP_REACH_SUBTILES = 4
+const GOLD_RETRY_MS = 1000
+const CARRIED_GOLD_PER_LEVEL = 10_000
+const INTERACTION_PANELS = new Set(['stash', 'cube', 'vendor', 'hire', 'imbue', 'add_sockets', 'personalize', 'trade', 'waypoint'])
 
 function canRightSkillTargetObjectOrItem(skillId: number): boolean {
   if (!Number.isInteger(skillId) || skillId < 0 || skillId >= SKILL_INPUT_FLAGS_113C.length) {
@@ -290,6 +293,9 @@ export class CommandMapper {
   dragInteractMode = false
   private readonly dragPickupAttempts = new Set<number>()
 
+  autoGoldPickup = false
+  private readonly goldRetryAt = new Map<number, number>()
+
   /** Default F1..F8 skill hotkey bindings (`key.toUpperCase()` -> binding). */
   private readonly skillHotkeys = new Map<string, SkillHotkeyBinding>()
 
@@ -358,6 +364,27 @@ export class CommandMapper {
     const bypassesGate = this.dragInteractMode && target !== null
     const gate = () => clickGate113c({ phase: 'hold', pressKind: this.pressKind, targetType: target?.unitType ?? null, selfMode: this.getSelfPlayerMode() })
     return bypassesGate || gate().pass ? { unit: target } : null
+  }
+
+  pickUpNearbyGold(nowMs: number): void {
+    const { ground } = this.world.containers
+    ;[...this.goldRetryAt.keys()].filter((id) => !ground.has(id)).forEach((id) => this.goldRetryAt.delete(id))
+    const { gold, level } = this.world.self
+    if (!this.autoGoldPickup || this.world.isDead || this.isInWorldInteraction() || gold >= level * CARRIED_GOLD_PER_LEVEL) return
+    const self = this.selfTickPosition()
+    const distance = (unit: ClientUnit) => Math.hypot(unit.x - self.x, unit.y - self.y)
+    const nearest = [...ground.values()]
+      .filter((item) => item.code.trim() === 'gld' && (this.goldRetryAt.get(item.id) ?? 0) <= nowMs)
+      .map((item) => this.world.getUnit('item', item.id))
+      .filter((unit): unit is ClientUnit => unit !== undefined && distance(unit) <= ITEM_PICKUP_REACH_SUBTILES)
+      .sort((a, b) => distance(a) - distance(b))[0]
+    if (nearest === undefined) return
+    this.goldRetryAt.set(nearest.id, nowMs + GOLD_RETRY_MS)
+    this.sendCommand({ type: 'ItemPickup', itemId: nearest.id, toCursor: false }, nowMs)
+  }
+
+  private isInWorldInteraction(): boolean {
+    return INTERACTION_PANELS.has(this.hudManager.leftPanel) || Boolean(this.hudManager.worldPanels?.npcMenu)
   }
 
   private centerCameraOnShownSelf(): void {

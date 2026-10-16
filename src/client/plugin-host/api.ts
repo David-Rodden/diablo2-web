@@ -303,6 +303,7 @@ export interface PluginContext {
   readonly smoothText: PluginTogglePort
   readonly stashDepositAll: PluginTogglePort
   readonly xpBar: PluginTogglePort
+  readonly autoGoldPickup: PluginTogglePort
   readonly lang: {
     get(): GameLang
     subscribe(fn: (lang: GameLang) => void): () => void
