@@ -110,6 +110,8 @@ const GOLD_RETRY_MS = 1000
 const GOLD_DETOUR_RETRY_MS = 2500
 const AUTO_GOLD_RADIUS_SUBTILES = 20
 const AUTO_COMBAT_REPEAT_MS = 40
+const HIT_CONFIRM_SLACK_MS = 120
+const DEFAULT_PING_MS = 200
 const CARRIED_GOLD_PER_LEVEL = 10_000
 const INTERACTION_PANELS = new Set(['stash', 'cube', 'vendor', 'hire', 'imbue', 'add_sockets', 'personalize', 'trade', 'waypoint'])
 
@@ -336,6 +338,8 @@ export class CommandMapper {
   private autoCombatOn = false
   private autoCombatTargetId: number | null = null
   private lastAutoCombatMs = Number.NEGATIVE_INFINITY
+  private lastAutoCombatHit: { readonly id: number; readonly life: number } | null = null
+  private swingFinishedAtMs: number | null = null
 
   /** Default F1..F8 skill hotkey bindings (`key.toUpperCase()` -> binding). */
   private readonly skillHotkeys = new Map<string, SkillHotkeyBinding>()
@@ -446,10 +450,26 @@ export class CommandMapper {
     if (!this.autoCombatOn || this.leftMouseDown || this.world.isDead || this.isInWorldInteraction() || nowMs - this.lastAutoCombatMs < AUTO_COMBAT_REPEAT_MS) return
     const target = this.resolveAutoCombatTarget()
     if (target === null) return
+    if (this.isAwaitingHitResult(target, nowMs)) return
     const freshTarget = target.id !== this.autoCombatTargetId
     this.autoCombatTargetId = target.id
     this.lastAutoCombatMs = nowMs
-    this.triggerPrimaryWorldAction(target.x, target.y, target, nowMs, !freshTarget)
+    const record = this.triggerPrimaryWorldAction(target.x, target.y, target, nowMs, !freshTarget)
+    if (record?.command.type === 'SkillOn' && record.rateLimit.allowed) {
+      this.lastAutoCombatHit = { id: target.id, life: target.lifePct }
+      this.swingFinishedAtMs = null
+    }
+  }
+
+  private isAwaitingHitResult(target: ClientUnit, nowMs: number): boolean {
+    const last = this.lastAutoCombatHit
+    if (last === null || last.id !== target.id || last.life !== target.lifePct) return false
+    if (this.isPlayerBusyCasting(nowMs)) {
+      this.swingFinishedAtMs = null
+      return true
+    }
+    this.swingFinishedAtMs ??= nowMs
+    return nowMs - this.swingFinishedAtMs < (this.hudManager.pingMs || DEFAULT_PING_MS) + HIT_CONFIRM_SLACK_MS
   }
 
   private isAutoCombatTarget(unit: ClientUnit): boolean {
