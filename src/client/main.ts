@@ -553,6 +553,12 @@ export async function startPlayApp(options?: {
         session.commandMapper.dragInteractMode = enabled
       },
     },
+    smoothText: {
+      isEnabled: () => hudManager.font.smoothText,
+      setEnabled: (enabled) => {
+        hudManager.font.smoothText = enabled
+      },
+    },
   })
   const pluginMenu = new PluginMenu({
     host: plugins,

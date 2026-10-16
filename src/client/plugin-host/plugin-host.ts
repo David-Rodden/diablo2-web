@@ -44,6 +44,7 @@ import {
   type PluginInstance,
   type PluginLogger,
   type PluginDragInteractPort,
+  type PluginSmoothTextPort,
   type PluginQuickCastPort,
   type PluginSessionView,
   type PluginStatus,
@@ -123,6 +124,7 @@ export interface PluginHostOptions {
    */
   readonly quickCast?: PluginQuickCastPort | null | undefined
   readonly dragInteract?: PluginDragInteractPort | null | undefined
+  readonly smoothText?: PluginSmoothTextPort | null | undefined
 }
 
 interface InternalPluginRecord {
@@ -161,6 +163,8 @@ export class PluginHost {
   private readonly quickCastClaims = new Set<string>()
   private readonly dragInteractPort: PluginDragInteractPort | null
   private readonly dragInteractClaims = new Set<string>()
+  private readonly smoothTextPort: PluginSmoothTextPort | null
+  private readonly smoothTextClaims = new Set<string>()
   private ready = false
   private destroyed = false
   private startPromise: Promise<void> | null = null
@@ -171,6 +175,7 @@ export class PluginHost {
     this.toolbar = options.toolbar ?? null
     this.quickCastPort = options.quickCast ?? null
     this.dragInteractPort = options.dragInteract ?? null
+    this.smoothTextPort = options.smoothText ?? null
     this.settingsStore = options.settingsStore ?? getGlobalSettingsStore()
     this.enforceClientDefaults = options.enforceClientDefaults ?? false
     this.configStore =
@@ -1455,6 +1460,13 @@ export class PluginHost {
         'dragInteract',
         this.dragInteractPort,
         this.dragInteractClaims,
+      ),
+      smoothText: this.createClaimedTogglePort(
+        record,
+        () => contextDisposed,
+        'smoothText',
+        this.smoothTextPort,
+        this.smoothTextClaims,
       ),
       lang: (() => {
         const subscribe = (fn: (lang: GameLang) => void): (() => void) => {
