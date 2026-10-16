@@ -127,3 +127,39 @@ describe('clicking with a side panel open', () => {
     }
   })
 })
+
+describe('auto-fight hit confirmation', () => {
+  const attackTimes = (onAttack: (s: ReturnType<typeof createSetup>, count: number) => void) => {
+    const s = createSetup()
+    s.spawn(901, 19, 101, 100)
+    s.mapper.handleKeyDown({ key: 'E' })
+    const times: number[] = []
+    for (let t = 1000; t <= 4000 && times.length < 3; t += 40) {
+      const before = s.attacked().length
+      s.mapper.tickAssists(t)
+      if (s.attacked().length > before) {
+        times.push(t)
+        onAttack(s, times.length)
+      }
+    }
+    return { times, s }
+  }
+
+  it('swings again as soon as the swing ends when the hit registered, and waits about a round trip when nothing came back', () => {
+    const registered = attackTimes((s, n) => void (s.world.getUnit('monster', 901)!.lifePct = 120 - n * 10)).times
+    const silent = attackTimes(() => {}).times
+    const gap = (t: number[]) => t[1]! - t[0]!
+    expect(registered.length).toBeGreaterThanOrEqual(2)
+    expect(gap(silent) - gap(registered)).toBeGreaterThanOrEqual(280)
+  })
+
+  it('moves straight to the next enemy when the target dies during the swing', () => {
+    const { s } = attackTimes((setup, n) => {
+      if (n === 1) {
+        setup.world.getUnit('monster', 901)!.lifePct = 0
+        setup.spawn(902, 19, 103, 101)
+      }
+    })
+    expect(s.attacked().slice(0, 2)).toEqual([901, 902])
+  })
+})
