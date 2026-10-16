@@ -441,6 +441,7 @@ export class SpriteRenderer {
   private readonly batchTextures: (AtlasHandle | null)[]
   private batchTextureCount = 0
   private camera: Camera = { x: 0, y: 0, zoom: 1 }
+  pixelScale = 1
 
   /** Lighting parameters. */
   private lightingEnabled = false
@@ -1690,7 +1691,7 @@ export class SpriteRenderer {
       this.cachedViewportHeight = vpHeight
     }
 
-    const zoom = this.camera.zoom
+    const zoom = this.camera.zoom * this.pixelScale
     if (zoom !== this.cachedZoom) {
       if (typeof gl.uniform1f === 'function') {
         gl.uniform1f(this.uniformZoom, zoom)

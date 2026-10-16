@@ -32,6 +32,7 @@ import { CommandMapper, ViewportCamera, type CameraLike } from '../input/command
 import type { LevelView } from '../map/level-view.ts'
 import type { MapService } from '../map/map-service.ts'
 import { RemoteEntityInterpolator } from '../motion/interpolate.ts'
+import { RenderSmoother } from '../motion/render-smoothing.ts'
 import { LocalMovementPredictor, type ServerPositionSource } from '../motion/predictor.ts'
 import { getGlobalSettingsStore, type SettingsStore } from '../settings/settings-store.ts'
 import { HudModel } from '../ui-model/hud-model.ts'
@@ -45,7 +46,7 @@ import { EnvEffectController } from '../world/env-effect.ts'
 import { getCanonicalItemDataTables } from '../world/item-tables-provider.ts'
 import { QuestFxLight } from '../world/quest-fx-light.ts'
 import type { ClientUnit } from '../world/client-unit.ts'
-import { LogicClock } from '../loop/logic-clock.ts'
+import { D2_LOGIC_TICK_MS, LogicClock } from '../loop/logic-clock.ts'
 import { OutboundRateLimiter } from './rate-limiter.ts'
 import { C2sIdenticalPacketDedupe113c } from './c2s-identical-dedupe-113c.ts'
 import { computeGameCompletion113c, type GameCompletion113c } from './game-completion-113c.ts'
@@ -314,6 +315,7 @@ export class OnlineSession {
   private disconnectReasonValue: string | null = null
   private pingMsValue = 0
   private tickCounter = 0
+  private readonly renderSmoother = new RenderSmoother()
   private readonly knownAreaIds = new Set<number>()
   /** #954 view-retention state: stable-primary dwell + last applied keep-set signature. */
   private viewRetentionPrimaryAreaId = -1
@@ -474,6 +476,7 @@ export class OnlineSession {
       isExternalUiIntercepted: options.isExternalUiIntercepted,
       onToggleChatInput: options.onToggleChatInput,
       onEscapeMenu: options.onEscapeMenu,
+      displayOffset: (key) => this.renderSmoother.displayOffset(key),
     })
 
     this.sceneSource = new ClientWorldSceneSource(
@@ -565,6 +568,11 @@ export class OnlineSession {
 
   private asRenderHost(): SessionRenderBuilderHost {
     return this as unknown as SessionRenderBuilderHost
+  }
+
+  renderInterpolationAlpha(): number {
+    const sinceTickMs = performance.now() - this.logicClock.getLastTickMs()
+    return Math.min(1, Math.max(0, sinceTickMs / D2_LOGIC_TICK_MS))
   }
 
   private asReplayHost(): SessionReplayHost {

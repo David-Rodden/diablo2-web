@@ -25,6 +25,7 @@ import {
   type ViewportProfile,
 } from '../view/viewport-profile.ts'
 import type { HudManager } from './hud-manager.ts'
+import { crispRenderDpr, devicePixelRatioOrOne } from '../view/crisp-scale.ts'
 
 export interface GroundItemBeamDescriptor {
   readonly id: number
@@ -84,6 +85,11 @@ export function computeHudLayout(
     physicalOffsetX: Math.round(offsetX * safeDpr),
     physicalOffsetY: Math.round(offsetY * safeDpr),
   }
+}
+
+export function crispHudDpr(cssW: number, cssH: number, profile: ViewportProfile): number {
+  const { uiScale } = computeDockingLayout(cssW, cssH, 1, profile)
+  return crispRenderDpr(uiScale, devicePixelRatioOrOne())
 }
 
 /**

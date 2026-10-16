@@ -145,6 +145,11 @@ const CAPTURE_FIXTURE_FILES = [
   '04-d2gs-idle-60s.d2cap',
 ] as const
 
+function isWholeMultipleOf(width: number, height: number, nativeWidth: number, nativeHeight: number): boolean {
+  const scale = width / nativeWidth
+  return Number.isInteger(scale) && scale >= 1 && height === nativeHeight * scale
+}
+
 async function main(): Promise<void> {
   const chromeBin = findChromeBinary()
   const outDir = resolve(ROOT_DIR, 'scratch/verify-play')
@@ -652,10 +657,8 @@ async function main(): Promise<void> {
     })()`)
     console.log('[verify-play] Gate 4 (Dual Viewport & Bilingual Toggle):', gate4)
     if (
-      gate4.w800 !== 800 ||
-      gate4.h600 !== 600 ||
-      gate4.w1024 !== 1024 ||
-      gate4.h768 !== 768 ||
+      !isWholeMultipleOf(gate4.w800, gate4.h600, 800, 600) ||
+      !isWholeMultipleOf(gate4.w1024, gate4.h768, 1024, 768) ||
       gate4.enLang !== 'en' ||
       gate4.zhLang !== 'zh'
     ) {
