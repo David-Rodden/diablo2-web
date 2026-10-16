@@ -1972,9 +1972,10 @@ export function renderActiveLeftPanelImpl(
 
     const drawMsgText = (text: string, x: number, y: number, colorCode: D2ColorCode = 'gold', hex = '#e8c26b') => {
       if (hasFont16 && font) {
-        font.drawText(ctx, text, x, y, { font: 'font16', color: colorCode })
+        font.drawText(ctx, text, x, y + 12, { font: 'font16', color: colorCode })
+      } else {
+        fillTextSafe(text, x, y + 12, hex)
       }
-      fillTextSafe(text, x, y + 12, hex)
     }
 
     drawMsgText(header, ox + 116, oy + 12, 'gold', '#e8c26b')
@@ -1987,18 +1988,23 @@ export function renderActiveLeftPanelImpl(
 
     const measureFn = (s: string) => (hasFont16 && font ? font.measureText(s, 'font16') : s.length * 7)
     const allLines: WrappedChatLine113c[] = []
-    for (const entry of this.messageLogEntries) {
+    const lineKeys: string[] = []
+    this.messageLogEntries.forEach((entry, entryIndex) => {
       const wrapped = wrapChatText113c(entry.text, measureFn, 256, entry.color ?? 0)
-      for (const wLine of wrapped) {
+      wrapped.forEach((wLine, wrapIndex) => {
         allLines.push(wLine)
-      }
-    }
+        lineKeys.push(`${entry.createdAtMs ?? entryIndex}|${entry.text}|${wrapIndex}`)
+      })
+    })
 
     const maxVisible = MSG_LOG_MAX_VISIBLE_LINES
     const maxOffset = Math.max(0, allLines.length - maxVisible)
     const clampedOffset = Math.max(0, Math.min(maxOffset, this.messageLogScrollOffset))
     const startIdx = Math.max(0, allLines.length - maxVisible - clampedOffset)
-    const visibleSlice = allLines.slice(startIdx, startIdx + maxVisible)
+    const glide = this.messageLogGlide.update(lineKeys, startIdx, maxVisible, 16, performance.now())
+    const glideRows = Math.ceil(Math.abs(glide) / 16)
+    const firstDrawn = Math.max(0, startIdx - glideRows)
+    const visibleSlice = allLines.slice(firstDrawn, startIdx + maxVisible + glideRows)
 
     const colorHexMap: Record<string, string> = {
       white: '#ffffff',
@@ -2015,12 +2021,17 @@ export function renderActiveLeftPanelImpl(
       purple: '#ae00ff',
     }
 
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(ox + 16, oy + 40, pw - 32, 328)
+    ctx.clip()
     for (let i = 0; i < visibleSlice.length; i++) {
       const line = visibleSlice[i]!
       const colorName = (D2_COLOR_INDEX_TO_NAME[line.color] ?? 'white') as D2ColorCode
       const hex = colorHexMap[colorName] ?? '#ffffff'
-      drawMsgText(line.text, ox + 22, oy + 46 + i * 16, colorName, hex)
+      drawMsgText(line.text, ox + 22, oy + 46 + (firstDrawn + i - startIdx) * 16 + glide, colorName, hex)
     }
+    ctx.restore()
 
     // Scrollbar track & thumb (`textslid.dc6` style)
     const sbX = ox + pw - 28

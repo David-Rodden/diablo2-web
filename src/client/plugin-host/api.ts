@@ -216,6 +216,7 @@ export interface PluginQuickCastPort {
 }
 
 export type PluginDragInteractPort = PluginQuickCastPort
+export type PluginSmoothTextPort = PluginQuickCastPort
 
 export interface ToolbarContributionPatch {
   readonly label?: LocalizedText | undefined
@@ -280,6 +281,7 @@ export interface PluginContext {
    */
   readonly quickCast: PluginQuickCastPort
   readonly dragInteract: PluginDragInteractPort
+  readonly smoothText: PluginSmoothTextPort
   readonly lang: {
     get(): GameLang
     subscribe(fn: (lang: GameLang) => void): () => void

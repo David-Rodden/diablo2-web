@@ -8,6 +8,8 @@
  * - Seamless CJK (Chinese) fallback with 1px black drop-outline matching Exocet/Formal cap heights
  */
 
+import { physicalGlyphScale, snapToPhysicalPixel, VectorGlyphAtlas } from './vector-glyph-atlas.ts'
+
 export type D2FontName = 'font6' | 'font8' | 'font16' | 'font30' | 'fontexocet10' | 'fontformal12'
 
 export type D2ColorCode =
@@ -678,7 +680,9 @@ export class D2FontRenderer {
   private metas: Record<string, FontAtlasMeta> = {}
   private images = new Map<string, HTMLImageElement | HTMLCanvasElement>()
   private tintedCache = new Map<string, HTMLCanvasElement>()
+  private readonly vectorAtlas = new VectorGlyphAtlas()
   loaded = false
+  smoothText = false
 
   async load(baseUrl = '/ui/fonts'): Promise<void> {
     if (typeof window === 'undefined' && typeof location === 'undefined' && !baseUrl.includes('://')) {
@@ -745,6 +749,7 @@ export class D2FontRenderer {
     for (const k of [...this.tintedCache.keys()]) {
       if (k.startsWith(`${font}:`)) this.tintedCache.delete(k)
     }
+    this.vectorAtlas.invalidate(font)
     this.loaded = this.images.size > 0
   }
 
@@ -808,6 +813,25 @@ export class D2FontRenderer {
     ctx.globalCompositeOperation = 'source-over'
     this.tintedCache.set(key, canvas)
     return canvas
+  }
+
+  private getGlyphAtlas(
+    font: D2FontName,
+    color: D2ColorCode,
+    scale: number,
+  ): { readonly image: HTMLCanvasElement | HTMLImageElement; readonly scale: number } | null {
+    const base = this.images.get(font)
+    const meta = this.metas[font]
+    if (this.smoothText && scale > 1 && font !== 'font30' && base && meta) {
+      const vector = this.vectorAtlas.get(font, base, meta, {
+        family: font === 'fontformal12' ? D2_FORMAL_FONT_STACK : D2_EXOCET_FONT_STACK,
+        fillColor: D2_PL2_TEXT_COLORS[color] ?? D2_COLOR_HEX[color],
+        baselineRow: FONT_BASELINE_OFFSET[font],
+      }, scale)
+      if (vector) return { image: vector, scale }
+    }
+    const tinted = this.getTintedAtlas(font, color)
+    return tinted ? { image: tinted, scale: 1 } : null
   }
 
   /**
@@ -876,8 +900,9 @@ export class D2FontRenderer {
     const align = options.align ?? 'left'
     const shadow = options.shadow ?? false
 
-    let curX = Math.round(x)
-    const baseY = Math.round(y)
+    const scale = physicalGlyphScale(ctx)
+    let curX = snapToPhysicalPixel(x, scale)
+    const baseY = snapToPhysicalPixel(y, scale)
 
     const spans = parseColoredText(text, defaultColor)
     const pxSize = FONT_PX_SIZE[font]
@@ -910,17 +935,17 @@ export class D2FontRenderer {
             }
           }
         }
-        if (align === 'center') curX = Math.round(x - hybridTotal / 2)
-        else if (align === 'right') curX = Math.round(x - hybridTotal)
+        if (align === 'center') curX = snapToPhysicalPixel(x - hybridTotal / 2, scale)
+        else if (align === 'right') curX = snapToPhysicalPixel(x - hybridTotal, scale)
       }
 
       const baselineOffset = options.lang === 'CHI'
         ? Math.round(FONT_BASELINE_OFFSET[font] * (14 / 16))
         : FONT_BASELINE_OFFSET[font]
       const dstY = baseY - baselineOffset
-      const shadowAtlas = shadow ? this.getTintedAtlas(font, 'black') : null
+      const shadowAtlas = shadow ? this.getGlyphAtlas(font, 'black', scale) : null
       for (const span of spans) {
-        const tinted = this.getTintedAtlas(font, span.color)
+        const tinted = this.getGlyphAtlas(font, span.color, scale)
         let i = 0
         while (i < span.text.length) {
           const rawCode = span.text.charCodeAt(i)
@@ -928,15 +953,15 @@ export class D2FontRenderer {
             const code = normalizeDc6CharCode(rawCode)
             const g = meta.glyphs[code]!
             const adv = g.width
-            const gx = Math.round(curX)
+            const gx = curX
             if (code !== 0x20 && code !== 0xa0 && g.frameW > 0 && g.frameH > 0 && tinted) {
               if (shadow && span.color !== 'black' && shadowAtlas) {
                 ctx.drawImage(
-                  shadowAtlas,
-                  g.x,
-                  g.y,
-                  g.frameW,
-                  g.frameH,
+                  shadowAtlas.image,
+                  g.x * shadowAtlas.scale,
+                  g.y * shadowAtlas.scale,
+                  g.frameW * shadowAtlas.scale,
+                  g.frameH * shadowAtlas.scale,
                   gx + 1,
                   dstY + 1,
                   g.frameW,
@@ -944,11 +969,11 @@ export class D2FontRenderer {
                 )
               }
               ctx.drawImage(
-                tinted,
-                g.x,
-                g.y,
-                g.frameW,
-                g.frameH,
+                tinted.image,
+                g.x * tinted.scale,
+                g.y * tinted.scale,
+                g.frameW * tinted.scale,
+                g.frameH * tinted.scale,
                 gx,
                 dstY,
                 g.frameW,
@@ -963,7 +988,7 @@ export class D2FontRenderer {
               j++
             }
             const cjkRun = span.text.slice(i, j)
-            const rx = Math.round(curX)
+            const rx = snapToPhysicalPixel(curX, scale)
             if (shadow) {
               ctx.fillStyle = '#000000'
               ctx.fillText(cjkRun, rx + 1, baseY + 1)

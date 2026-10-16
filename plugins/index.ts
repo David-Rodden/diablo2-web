@@ -12,6 +12,7 @@ import { hudEnhancementsPlugin } from './hud-enhancements/index.ts'
 import { killStatsPlugin } from './kill-stats/index.ts'
 import { nextGamePlugin } from './next-game/index.ts'
 import { quickCastPlugin } from './quick-cast/index.ts'
+import { smoothTextPlugin } from './smooth-text/index.ts'
 
 export const BUILTIN_PLUGINS: readonly D2WebPlugin[] = [
   killStatsPlugin,
@@ -23,4 +24,5 @@ export const BUILTIN_PLUGINS: readonly D2WebPlugin[] = [
   quickCastPlugin,
   nextGamePlugin,
   dragInteractPlugin,
+  smoothTextPlugin,
 ]

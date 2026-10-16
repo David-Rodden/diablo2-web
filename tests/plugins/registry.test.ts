@@ -592,6 +592,10 @@ describe('BUILTIN_PLUGINS Registry & Built-In Plugin Lifecycles', () => {
         isEnabled: () => false,
         setEnabled() {},
       },
+      smoothText: {
+        isEnabled: () => false,
+        setEnabled() {},
+      },
     })
     await host.start()
 

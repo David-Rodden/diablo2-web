@@ -23,6 +23,7 @@ import {
   isUiItemEthereal,
 } from './inventory.ts'
 import { requireTbl, type TblLang } from '../i18n/lang.ts'
+import { LineGlide } from './line-glide.ts'
 import type { GroundItemEnhancementsConfig } from '../settings/client-settings.ts'
 import {
   CHAT_OVERLAY_LINE_HEIGHT,
@@ -225,6 +226,7 @@ export function renderHudFrame(
   }
   if (
     hud.enableIdleThrottle &&
+    !isHudTextMoving(hud, nowMs) &&
     !shouldRenderHudFrame(internal.lastHudFrameTiming, hud.mouseX, hud.mouseY, nowMs)
   ) {
     return
@@ -239,7 +241,7 @@ export function renderHudFrame(
   // cursor animation cell) and no timed overlay is active, the canvas
   // already shows exactly what a repaint would produce — skip the whole
   // rasterization.
-  if (hud.enableIdleThrottle && internal.hudRepaintUnchanged(nowMs)) {
+  if (hud.enableIdleThrottle && !isHudTextMoving(hud, nowMs) && internal.hudRepaintUnchanged(nowMs)) {
     return
   }
   internal.lastFullHudRepaintMs = nowMs
@@ -292,14 +294,9 @@ export function renderHudFrame(
   ctx.clearRect(0, 0, targetW, targetH)
 
   // 0. Automap 2D Text Overlay (Warp/Stash Font6 labels, NPC names, Top-Right Gold Font16 Level Name + Difficulty)
-  // Drawn in full-viewport CSS pixel space (0..cssW, 0..cssH) to align 1:1 with the WebGL automap canvas
-  ctx.save()
-  ctx.scale(dpr, dpr)
-  internal.callbacks.onRenderAutomapOverlay?.(ctx, hud.font, cssW, cssH)
-  ctx.restore()
-
   ctx.translate(Math.round(offsetX * dpr), Math.round(offsetY * dpr))
   ctx.scale(uiScale * dpr, uiScale * dpr)
+  internal.callbacks.onRenderAutomapOverlay?.(ctx, hud.font, profile.width, profile.height)
 
   // 0b. Top-Left Mercenary Portrait & Life Bar (R3.3) + Summoned Minions + Party Mini-Portraits (R5.1)
   if (hud.leftPanel === 'none' && hud.showPartyPortraits !== false) {
@@ -1318,6 +1315,28 @@ export function renderOverheadSpeechBubbles(
  * Renders the top-left active chat & event message stream (`10,000 ms` TTL, max 6 wrapped lines per message,
  * max 18 active lines total, portrait & left-panel avoidance, `15px` line height with translucent black rect).
  */
+const chatOverlayGlides = new WeakMap<HudManager, LineGlide>()
+
+function chatOverlayGlide(hud: HudManager): LineGlide {
+  let glide = chatOverlayGlides.get(hud)
+  if (glide === undefined) {
+    glide = new LineGlide()
+    chatOverlayGlides.set(hud, glide)
+  }
+  return glide
+}
+
+function isHudTextMoving(hud: HudManager, nowMs: number): boolean {
+  const speech = hud.worldPanels.npcSpeech
+  const speechScrolling =
+    speech !== null && speech.autoScroll === true && (speech.scrollY ?? 0) < (speech.maxScrollY ?? 0)
+  return (
+    speechScrolling ||
+    chatOverlayGlides.get(hud)?.isMoving(nowMs) === true ||
+    hud.worldPanels.messageLogGlide.isMoving(nowMs)
+  )
+}
+
 export function renderChatOverlay(
   hud: HudManager,
   ctx: CanvasRenderingContext2D,
@@ -1350,24 +1369,36 @@ export function renderChatOverlay(
 
   const measureFn = (s: string) => hud.font.measureText(s, 'font16')
   const allLines: WrappedChatLine113c[] = []
+  const lineKeys: string[] = []
   for (const msg of activeMsgs) {
     const wrapped = wrapChatText113c(msg.text, measureFn, layout.maxWrapWidth, msg.color ?? 0)
-    for (const wLine of wrapped) {
+    wrapped.forEach((wLine, wrapIndex) => {
       allLines.push(wLine)
-    }
+      lineKeys.push(`${msg.createdAtMs ?? ''}|${msg.text}|${wrapIndex}`)
+    })
   }
   if (allLines.length === 0) return
 
-  const visibleLines =
-    allLines.length > CHAT_OVERLAY_MAX_ACTIVE_LINES
-      ? allLines.slice(allLines.length - CHAT_OVERLAY_MAX_ACTIVE_LINES)
-      : allLines
+  const visibleStart = Math.max(0, allLines.length - CHAT_OVERLAY_MAX_ACTIVE_LINES)
+  const glide = chatOverlayGlide(hud).update(
+    lineKeys,
+    visibleStart,
+    allLines.length - visibleStart,
+    CHAT_OVERLAY_LINE_HEIGHT,
+    nowMs,
+  )
+  const firstDrawn = visibleStart - Math.min(visibleStart, Math.ceil(Math.max(0, glide) / CHAT_OVERLAY_LINE_HEIGHT))
 
   const lang: TblLang = hud.lang === 'ENG' ? 'ENG' : 'CHI'
   ctx.save()
-  for (let i = 0; i < visibleLines.length; i++) {
-    const line = visibleLines[i]!
-    const lineY = layout.startY + i * CHAT_OVERLAY_LINE_HEIGHT
+  if (glide !== 0) {
+    ctx.beginPath()
+    ctx.rect(0, layout.startY - 14, screenWidth, CHAT_OVERLAY_MAX_ACTIVE_LINES * CHAT_OVERLAY_LINE_HEIGHT + 2)
+    ctx.clip()
+  }
+  for (let i = firstDrawn; i < allLines.length; i++) {
+    const line = allLines[i]!
+    const lineY = layout.startY + (i - visibleStart) * CHAT_OVERLAY_LINE_HEIGHT + glide
     const bgX = layout.startX - 5
     const bgY = lineY - 14
     const bgW = Math.max(20, line.width) + 10
