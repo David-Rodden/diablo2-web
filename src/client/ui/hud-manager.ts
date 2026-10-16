@@ -35,6 +35,7 @@ import {
   type UiInventoryItem,
 } from './inventory.ts'
 import { upgradeVerdict, type BuildProfile, type UpgradeVerdict } from '../../common/items/item-comparison.ts'
+import { XpRateTracker } from './xp-bar.ts'
 import { onlineItemDataToUiInventoryItem } from '../../common/items/item-bridge.ts'
 import type { ItemData } from '../../netproto/index.ts'
 import { D2_EXPERIENCE_TABLE_99 } from '../../common/skills/formulas.ts'
@@ -466,6 +467,7 @@ export class HudManager {
   showPartyPortraits = true
   helpOverlayOpen = false
   showXpBar = false
+  readonly xpRate = new XpRateTracker()
   upgradeHints = false
   resolveGroundItem: ((unitId: number) => ItemData | undefined) | null = null
   resolveBuild: (() => BuildProfile) | null = null
