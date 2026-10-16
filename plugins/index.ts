@@ -3,6 +3,7 @@
  */
 
 import type { D2WebPlugin } from '../src/client/plugin-host/api.ts'
+import { autoGoldPickupPlugin } from './auto-gold-pickup/index.ts'
 import { automapRevealPlugin } from './automap-reveal/index.ts'
 import { dragInteractPlugin } from './drag-interact/index.ts'
 import { dropTrackerPlugin } from './drop-tracker/index.ts'
@@ -29,4 +30,5 @@ export const BUILTIN_PLUGINS: readonly D2WebPlugin[] = [
   smoothTextPlugin,
   stashDepositAllPlugin,
   experienceBarPlugin,
+  autoGoldPickupPlugin,
 ]

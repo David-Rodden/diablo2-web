@@ -582,6 +582,10 @@ export async function startPlayApp(options?: {
       isEnabled: () => hudManager.showXpBar,
       setEnabled: (enabled) => void (hudManager.showXpBar = enabled),
     },
+    autoGoldPickup: {
+      isEnabled: () => session.commandMapper.autoGoldPickup,
+      setEnabled: (enabled) => void (session.commandMapper.autoGoldPickup = enabled),
+    },
   })
   const pluginMenu = new PluginMenu({
     host: plugins,

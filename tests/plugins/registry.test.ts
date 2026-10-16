@@ -604,6 +604,10 @@ describe('BUILTIN_PLUGINS Registry & Built-In Plugin Lifecycles', () => {
         isEnabled: () => false,
         setEnabled() {},
       },
+      autoGoldPickup: {
+        isEnabled: () => false,
+        setEnabled() {},
+      },
     })
     await host.start()
 

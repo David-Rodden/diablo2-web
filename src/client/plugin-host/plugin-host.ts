@@ -126,9 +126,10 @@ export interface PluginHostOptions {
   readonly smoothText?: PluginTogglePort | null | undefined
   readonly stashDepositAll?: PluginTogglePort | null | undefined
   readonly xpBar?: PluginTogglePort | null | undefined
+  readonly autoGoldPickup?: PluginTogglePort | null | undefined
 }
 
-const TOGGLE_PORT_NAMES = ['quickCast', 'dragInteract', 'smoothText', 'stashDepositAll', 'xpBar'] as const
+const TOGGLE_PORT_NAMES = ['quickCast', 'dragInteract', 'smoothText', 'stashDepositAll', 'xpBar', 'autoGoldPickup'] as const
 type TogglePortName = (typeof TOGGLE_PORT_NAMES)[number]
 
 interface InternalPluginRecord {
