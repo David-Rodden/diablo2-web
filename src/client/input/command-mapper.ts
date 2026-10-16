@@ -27,7 +27,7 @@ import type { LevelView } from '../map/level-view.ts'
 import type { MapService } from '../map/map-service.ts'
 import { findPathWorld, type SubTilePoint } from '../motion/pathfind.ts'
 import type { LocalMovementPredictor } from '../motion/predictor.ts'
-import type { DisplayOffset } from '../motion/render-smoothing.ts'
+import { NO_OFFSET, type DisplayOffset } from '../motion/render-smoothing.ts'
 import { OutboundRateLimiter, type RateLimitAcquireResult } from '../session/rate-limiter.ts'
 import type { HudModel } from '../ui-model/hud-model.ts'
 import {
@@ -246,7 +246,7 @@ export class CommandMapper {
   private readonly isExternalUiIntercepted?: ((screenX: number, screenY: number) => boolean) | undefined
   private readonly onToggleChatInput?: (() => void) | undefined
   private readonly onEscapeMenu?: (() => void) | undefined
-  private readonly displayOffset?: ((key: string) => DisplayOffset) | undefined
+  private readonly displayOffset: (key: string) => DisplayOffset
   private dispatchingFreshPress = false
 
   private shiftHeld = false
@@ -319,76 +319,51 @@ export class CommandMapper {
     this.isExternalUiIntercepted = deps?.isExternalUiIntercepted
     this.onToggleChatInput = deps?.onToggleChatInput
     this.onEscapeMenu = deps?.onEscapeMenu
-    this.displayOffset = deps?.displayOffset
+    this.displayOffset = deps?.displayOffset ?? (() => NO_OFFSET)
   }
 
   private shownPosition(unit: ClientUnit): { readonly x: number; readonly y: number } {
-    if (this.displayOffset === undefined) return unit
-    const kind = unit.unitType === 'tile' ? 'warp' : unit.unitType
-    const { dx, dy } = this.displayOffset(`${kind}:${unit.id}`)
-    return { x: unit.x + dx, y: unit.y + dy }
+    const { dx, dy } = this.displayOffset(`${unit.unitType === 'tile' ? 'warp' : unit.unitType}:${unit.id}`)
+    return dx === 0 && dy === 0 ? unit : { x: unit.x + dx, y: unit.y + dy }
+  }
+
+  private selfTickPosition(): { readonly x: number; readonly y: number } {
+    return this.predictor ? this.predictor.getSnapshot() : this.world.self
   }
 
   private isAwaitingInteractionWith(unit: ClientUnit): boolean {
-    switch (unit.unitType) {
-      case 'item':
-        return unit.id === this.pendingItemPickupId
-      case 'monster':
-        return unit.id === this.pendingNpcInteractId
-      case 'object':
-        return unit.id === this.pendingObjectInteractId
-      case 'tile':
-        return unit.id === this.pendingWarpInteractId
-      default:
-        return false
+    const pendingIds: Partial<Record<ClientUnit['unitType'], number | null>> = {
+      item: this.pendingItemPickupId,
+      monster: this.pendingNpcInteractId,
+      object: this.pendingObjectInteractId,
+      tile: this.pendingWarpInteractId,
     }
+    return pendingIds[unit.unitType] === unit.id
   }
 
   private resolveDragHoldTarget(screenX: number, screenY: number): ClientUnit | null | 'wait' {
     const hovered = this.resolvePointerTarget(screenX, screenY).hoveredUnit
     if (hovered === null) return null
     if (this.isAwaitingInteractionWith(hovered)) return 'wait'
-    if (hovered.unitType === 'monster') {
-      if (this.isTownOrInteractiveNpc(hovered) || this.isFriendlySummonOrPet(hovered)) return null
-      return hovered
-    }
-    if (hovered.unitType === 'item' && !this.dragPickupAttempts.has(hovered.id)) {
-      const self = this.predictor ? this.predictor.getSnapshot() : this.world.self
-      if (Math.hypot(hovered.x - self.x, hovered.y - self.y) <= ITEM_PICKUP_REACH_SUBTILES) {
-        this.dragPickupAttempts.add(hovered.id)
-        return hovered
-      }
-    }
-    return null
+    if (hovered.unitType === 'monster') return this.isTownOrInteractiveNpc(hovered) || this.isFriendlySummonOrPet(hovered) ? null : hovered
+    const self = this.selfTickPosition()
+    if (hovered.unitType !== 'item' || this.dragPickupAttempts.has(hovered.id) || Math.hypot(hovered.x - self.x, hovered.y - self.y) > ITEM_PICKUP_REACH_SUBTILES) return null
+    this.dragPickupAttempts.add(hovered.id)
+    return hovered
   }
 
-  private resolveLeftHoldAction(
-    screenX: number,
-    screenY: number,
-    vanillaTarget: () => ClientUnit | null,
-  ): { readonly unit: ClientUnit | null } | null {
+  private resolveLeftHoldAction(screenX: number, screenY: number, vanillaTarget: () => ClientUnit | null): { readonly unit: ClientUnit | null } | null {
     const target = this.dragInteractMode ? this.resolveDragHoldTarget(screenX, screenY) : vanillaTarget()
     if (target === 'wait') return null
-    const gated = !this.dragInteractMode || target === null
-    if (
-      gated &&
-      !clickGate113c({
-        phase: 'hold',
-        pressKind: this.pressKind,
-        targetType: target ? target.unitType : null,
-        selfMode: this.getSelfPlayerMode(),
-      }).pass
-    ) {
-      return null
-    }
-    return { unit: target }
+    const bypassesGate = this.dragInteractMode && target !== null
+    const gate = () => clickGate113c({ phase: 'hold', pressKind: this.pressKind, targetType: target?.unitType ?? null, selfMode: this.getSelfPlayerMode() })
+    return bypassesGate || gate().pass ? { unit: target } : null
   }
 
   private centerCameraOnShownSelf(): void {
-    const { x, y } = this.predictor ? this.predictor.getSnapshot() : this.world.self
-    if (x === 0 && y === 0) return
-    const { dx, dy } = this.displayOffset?.('self') ?? { dx: 0, dy: 0 }
-    this.camera.update(x + dx, y + dy)
+    const { x, y } = this.selfTickPosition()
+    const { dx, dy } = this.displayOffset('self')
+    if (x !== 0 || y !== 0) this.camera.update(x + dx, y + dy)
   }
 
   private isTownArea(world: ClientWorld = this.world): boolean {
@@ -1309,12 +1284,8 @@ export class CommandMapper {
         return
       }
       if (resolvedNowMs - this.lastHoldDispatchMs >= 40) {
-        const hold = this.resolveLeftHoldAction(screenX, resolvedY, () =>
-          this.selectionLocked ? this.resolveLockedHoldTarget113c(leftSkillId) : this.hoveredUnit,
-        )
-        if (hold === null) {
-          return
-        }
+        const hold = this.resolveLeftHoldAction(screenX, resolvedY, () => (this.selectionLocked ? this.resolveLockedHoldTarget113c(leftSkillId) : this.hoveredUnit))
+        if (hold === null) return
         this.lastHoldDispatchMs = resolvedNowMs
         this.triggerPrimaryWorldAction(
           liveSubtile.x,
@@ -1686,22 +1657,16 @@ export class CommandMapper {
     nowMs = performance.now(),
     isHold = false,
   ): DispatchedCommandRecord | null {
-    const outerFreshPress = this.dispatchingFreshPress
+    const outer = this.dispatchingFreshPress
     this.dispatchingFreshPress = !isHold
     try {
       return this.runPrimaryWorldAction(subtileX, subtileY, hoveredUnit, nowMs, isHold)
     } finally {
-      this.dispatchingFreshPress = outerFreshPress
+      this.dispatchingFreshPress = outer
     }
   }
 
-  private runPrimaryWorldAction(
-    subtileX: number,
-    subtileY: number,
-    hoveredUnit: ClientUnit | null,
-    nowMs: number,
-    isHold: boolean,
-  ): DispatchedCommandRecord | null {
+  private runPrimaryWorldAction(subtileX: number, subtileY: number, hoveredUnit: ClientUnit | null, nowMs: number, isHold: boolean): DispatchedCommandRecord | null {
     const isRunning = this.hudModel ? this.hudModel.isRunMode : this.hudManager.isRunning
     const leftSkillId =
       this.world.self?.leftSkill || (this.hudModel ? this.hudModel.leftSkillId : this.hudManager.hotkeys.leftSkillId)
@@ -2742,10 +2707,7 @@ export class CommandMapper {
     }
 
     if (this.leftMouseDown && !this.isPointIntercepted(this.lastPointerX, this.lastPointerY)) {
-      if (
-        !this.dragInteractMode &&
-        (this.lockedPointerUnit?.unitType === 'item' || this.lockedPointerUnit?.unitType === 'object')
-      ) {
+      if (!this.dragInteractMode && (this.lockedPointerUnit?.unitType === 'item' || this.lockedPointerUnit?.unitType === 'object')) {
         return null
       }
       const leftSkillId =
@@ -2759,13 +2721,9 @@ export class CommandMapper {
       }
       const liveSubtile = this.resolveLiveCursorSubtile(this.lastPointerX, this.lastPointerY)
       const hold = this.resolveLeftHoldAction(this.lastPointerX, this.lastPointerY, () =>
-        this.selectionLocked
-          ? this.resolveLockedHoldTarget113c(leftSkillId)
-          : this.resolvePointerTarget(this.lastPointerX, this.lastPointerY).hoveredUnit,
+        this.selectionLocked ? this.resolveLockedHoldTarget113c(leftSkillId) : this.resolvePointerTarget(this.lastPointerX, this.lastPointerY).hoveredUnit,
       )
-      if (hold === null) {
-        return null
-      }
+      if (hold === null) return null
       this.lastHoldDispatchMs = nowMs
       const record = this.triggerPrimaryWorldAction(
         liveSubtile.x,

@@ -26,7 +26,7 @@ function createSetup(displayOffset?: (key: string) => DisplayOffset) {
     predictor,
     rateLimiter: new OutboundRateLimiter(),
     sendCommand: (cmd) => sent.push(cmd),
-    ...(displayOffset !== undefined ? { displayOffset } : {}),
+    displayOffset,
   })
   const movesSent = () => sent.filter((c) => classifyClientCommand(c) === 'movement').length
   return { world, mapper, movesSent }

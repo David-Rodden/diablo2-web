@@ -12,8 +12,9 @@
  */
 
 import { CursorController } from '../ui/cursor.ts'
-import { crispCanvasScale } from '../view/crisp-scale.ts'
-import type { FontAtlasMeta } from '../ui/font.ts'
+import { syncCrispBackingStore } from '../view/crisp-scale.ts'
+import { blitGlyph, fontStackFor, type FontAtlasMeta, type GlyphAtlas } from '../ui/font.ts'
+import { physicalGlyphScale, smoothTextSetting, VectorGlyphAtlas } from '../ui/vector-glyph-atlas.ts'
 import {
   CAMPFIRE_CLASS_ORDER,
   CAMPFIRE_FLAME_CONTROL_SPEC,
@@ -241,6 +242,8 @@ export type FrontendFontName =
  * PL2 text color indices (`D2Gfx_DrawChar` 0x6f876580..0x6f87658f):
  * 0 = White, 1 = Red, 2 = Green, 3 = Blue, 4 = Gold, 5 = DarkGray, 7 = Tan, 8 = Orange, 9 = Yellow
  */
+const BITMAP_ONLY_FONTS: ReadonlySet<FrontendFontName> = new Set(['font30', 'font42'])
+
 export type FrontendColorIndex = 0 | 1 | 2 | 3 | 4 | 5 | 7 | 8 | 9
 
 export interface UiButtonDef {
@@ -443,6 +446,7 @@ export class FrontendRenderer {
    */
   onPlaySound?: (soundId: number) => void
   asyncHandlers: FrontendAsyncHandlers | null = null
+  private readonly vectorAtlas = new VectorGlyphAtlas()
 
   constructor(canvas: HTMLCanvasElement, state: BnetFlowState) {
     this.canvas = canvas
@@ -772,6 +776,11 @@ export class FrontendRenderer {
     let curY = vAlign === 'middle' ? Math.round(y - totalBlockH / 2) : Math.round(y)
     const cjkAdvance = this.getCjkFontPx(font, meta.lineHeight)
     const isMultiplyBtn = options.blendMode === 'multiply'
+    const scale = physicalGlyphScale(this.ctx)
+    const vector =
+      smoothTextSetting.enabled && scale > 1 && !options.atlasKey && !BITMAP_ONLY_FONTS.has(font) &&
+      this.vectorAtlas.get(`${font}-c${color}`, atlas, meta, fontStackFor(font), this.getCjkColorHex(color, isMultiplyBtn), scale)
+    const glyphAtlas: GlyphAtlas = vector ? { image: vector, scale } : { image: atlas, scale: 1 }
 
     if (options.blendMode) {
       this.ctx.save()
@@ -822,7 +831,7 @@ export class FrontendRenderer {
           throw new Error(`Missing glyph metric for charCode ${code} in font "${font}"`)
         }
         if (code !== 32 && g.frameW > 0 && g.frameH > 0) {
-          this.ctx.drawImage(atlas, g.x, g.y, g.frameW, g.frameH, curX, curY, g.frameW, g.frameH)
+          blitGlyph(this.ctx, glyphAtlas, g, curX, curY)
         }
         curX += g.width
       }
@@ -1888,22 +1897,12 @@ export class FrontendRenderer {
     }
   }
 
-  private syncCrispBackingStore(): void {
-    const pixelScale = crispCanvasScale(this.canvas, 800, 600)
-    if (this.canvas.width !== 800 * pixelScale || this.canvas.height !== 600 * pixelScale) {
-      this.canvas.width = 800 * pixelScale
-      this.canvas.height = 600 * pixelScale
-    }
-    if (typeof this.ctx.setTransform === 'function') {
-      this.ctx.setTransform(pixelScale, 0, 0, pixelScale, 0, 0)
-    }
-    this.ctx.imageSmoothingEnabled = false
-  }
-
   private renderInner(nowMs: number): void {
     this.lastRenderNowMs = nowMs
     const ctx = this.ctx
-    this.syncCrispBackingStore()
+    const pixelScale = syncCrispBackingStore(this.canvas, 800, 600)
+    ctx.setTransform?.(pixelScale, 0, 0, pixelScale, 0, 0)
+    ctx.imageSmoothingEnabled = false
     ctx.clearRect(0, 0, 800, 600)
 
     switch (this.state.stage) {
