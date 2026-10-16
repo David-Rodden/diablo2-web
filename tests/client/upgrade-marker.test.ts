@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { D2FontRenderer } from '../../src/client/ui/font.ts'
 import { upgradeSuffix } from '../../src/client/ui/upgrade-marker.ts'
 import { WorldPanelsHud } from '../../src/client/ui/world-panels.ts'
+import { HudManager } from '../../src/client/ui/hud-manager.ts'
 import type { UpgradeVerdict } from '../../src/common/items/item-comparison.ts'
 import type { UiInventoryItem } from '../../src/common/items/inventory-model.ts'
 
@@ -35,4 +36,15 @@ describe('upgrade markers', () => {
     expect(tooltipFor('better').strokes).toBe(2)
     expect(tooltipFor(null)).toMatchObject({ header: 'Cap', strokes: 0 })
   })
+
+  it('marks an unidentified item you could wear as unsure instead of hiding it', () => {
+    const hud = new HudManager()
+    hud.upgradeHints = true
+    const cap = (fields: Partial<UiInventoryItem>) => ({ id: String(Math.random()), code: 'cap', allowedSlots: ['helm'], stats: [], ...fields }) as unknown as UiInventoryItem
+    expect(hud.upgradeVerdictFor(cap({ identified: false }))).toBe('unsure')
+    expect(hud.upgradeVerdictFor(cap({ identified: false, reqLevel: 90 }))).toBeNull()
+    hud.upgradeHints = false
+    expect(hud.upgradeVerdictFor(cap({ identified: false }))).toBeNull()
+  })
 })
+

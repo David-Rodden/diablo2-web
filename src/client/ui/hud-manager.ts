@@ -34,7 +34,7 @@ import {
   type EquipSlotId,
   type UiInventoryItem,
 } from './inventory.ts'
-import { upgradeVerdict, type UpgradeVerdict } from '../../common/items/item-comparison.ts'
+import { upgradeVerdict, type BuildProfile, type UpgradeVerdict } from '../../common/items/item-comparison.ts'
 import { onlineItemDataToUiInventoryItem } from '../../common/items/item-bridge.ts'
 import type { ItemData } from '../../netproto/index.ts'
 import { D2_EXPERIENCE_TABLE_99 } from '../../common/skills/formulas.ts'
@@ -461,6 +461,7 @@ export class HudManager {
   showXpBar = false
   upgradeHints = false
   resolveGroundItem: ((unitId: number) => ItemData | undefined) | null = null
+  resolveBuild: (() => BuildProfile) | null = null
   private readonly groundUiItems = new WeakMap<ItemData, UiInventoryItem>()
   private upgradeVerdicts = new Map<UiInventoryItem, UpgradeVerdict | null>()
   private upgradeMarkersKey = ''
@@ -1688,10 +1689,13 @@ export class HudManager {
   upgradeVerdictFor(item: UiInventoryItem): UpgradeVerdict | null {
     if (!this.upgradeHints) return null
     const context = this.inventory.playerContext
-    const key = `${Object.values(this.inventory.equipped).map((e) => (typeof e === 'object' && e ? e.id : '-')).join(',')}|${JSON.stringify(context)}`
+    const build = this.resolveBuild?.()
+    const key = `${Object.values(this.inventory.equipped).map((e) => (typeof e === 'object' && e ? e.id : '-')).join(',')}|${JSON.stringify(context)}|${build?.classIndex}:${[...(build?.skillPoints ?? [])].join(';')}`
     if (key !== this.upgradeMarkersKey) [this.upgradeVerdicts, this.upgradeMarkersKey] = [new Map(), key]
     if (!this.upgradeVerdicts.has(item)) {
-      this.upgradeVerdicts.set(item, upgradeVerdict(item, this.inventory.equipped, { canUse: canPlayerUseUiItem(item, context), unidentified: isUiItemUnidentified(item) }))
+      const unidentified = isUiItemUnidentified(item)
+      const requirementsView = unidentified ? { ...item, identified: true, isGambleMystery: false, rawItem: undefined } : item
+      this.upgradeVerdicts.set(item, upgradeVerdict(item, this.inventory.equipped, { canUse: canPlayerUseUiItem(requirementsView, context), unidentified, ...(build ? { build } : {}) }))
     }
     return this.upgradeVerdicts.get(item) ?? null
   }

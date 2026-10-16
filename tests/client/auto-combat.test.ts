@@ -113,3 +113,17 @@ describe('monster health bar while holding the mouse', () => {
     expect(s.barTarget()).toBe(901)
   })
 })
+
+describe('clicking with a side panel open', () => {
+  it('hits the monster where it is drawn after the camera shifts for the panel', async () => {
+    const { subTileToScreen, computePanelCameraShift } = await import('../../src/client/view/viewport-profile.ts')
+    const s = createSetup()
+    s.spawn(901, 19, 96, 104)
+    for (const [left, right] of [['char', 'none'], ['none', 'inv']] as const) {
+      s.hud.leftPanel = left
+      s.hud.rightPanel = right
+      const drawn = subTileToScreen(96, 104, 100, 100, s.camera.viewportProfile, computePanelCameraShift(left !== 'none', right !== 'none'))
+      expect(s.mapper.resolvePointerTarget(drawn.x, drawn.y).hoveredUnit?.id).toBe(901)
+    }
+  })
+})

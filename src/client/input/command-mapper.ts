@@ -32,8 +32,10 @@ import { OutboundRateLimiter, type RateLimitAcquireResult } from '../session/rat
 import type { HudModel } from '../ui-model/hud-model.ts'
 import {
   VIEWPORT_800x600,
+  computePanelCameraShift,
   getViewportProfile,
   getViewportProfileBySize,
+  panelDockWidth,
   screenToSubTile,
   subTileToScreen,
   type ViewportProfile,
@@ -132,6 +134,7 @@ export interface CameraLike {
   readonly subX: number
   readonly subY: number
   readonly viewportProfile: ViewportProfile
+  panelShiftX?: number
   screenToSubtile(screenX: number, screenY: number): { readonly x: number; readonly y: number }
   subtileToScreen(subX: number, subY: number): { readonly x: number; readonly y: number }
   snapTo(subX: number, subY: number): void
@@ -145,6 +148,7 @@ export interface CameraLike {
 export class ViewportCamera implements CameraLike {
   subX = 0
   subY = 0
+  panelShiftX = 0
   viewportProfile: ViewportProfile
 
   constructor(
@@ -158,7 +162,7 @@ export class ViewportCamera implements CameraLike {
   }
 
   screenToSubtile(screenX: number, screenY: number): { readonly x: number; readonly y: number } {
-    const raw = screenToSubTile(screenX, screenY, this.subX, this.subY, this.viewportProfile)
+    const raw = screenToSubTile(screenX, screenY, this.subX, this.subY, this.viewportProfile, this.panelShiftX)
     return {
       x: Math.round(raw.x),
       y: Math.round(raw.y),
@@ -166,7 +170,7 @@ export class ViewportCamera implements CameraLike {
   }
 
   subtileToScreen(subX: number, subY: number): { readonly x: number; readonly y: number } {
-    return subTileToScreen(subX, subY, this.subX, this.subY, this.viewportProfile)
+    return subTileToScreen(subX, subY, this.subX, this.subY, this.viewportProfile, this.panelShiftX)
   }
 
   snapTo(subX: number, subY: number): void {
@@ -467,6 +471,10 @@ export class CommandMapper {
   }
 
   private centerCameraOnShownSelf(): void {
+    const isOpen = (panel: string | undefined) => panel !== undefined && panel !== 'none'
+    if ('panelShiftX' in this.camera) {
+      this.camera.panelShiftX = computePanelCameraShift(isOpen(this.hudManager.leftPanel), isOpen(this.hudManager.rightPanel), panelDockWidth(this.camera.viewportProfile))
+    }
     const { x, y } = this.selfTickPosition()
     const { dx, dy } = this.displayOffset('self')
     if (x !== 0 || y !== 0) this.camera.update(x + dx, y + dy)
