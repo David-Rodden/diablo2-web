@@ -88,6 +88,7 @@ import {
 import { Toolbar } from './toolbar/toolbar.ts'
 import { HudModel } from './ui-model/hud-model.ts'
 import type { SceneFrameSnapshot } from './view/scene-source.ts'
+import { crispCanvasScale } from './view/crisp-scale.ts'
 import {
   applyViewportProfileToDom,
   getViewportProfile,
@@ -546,6 +547,12 @@ export async function startPlayApp(options?: {
     settingsStore,
     enforceClientDefaults: true,
     quickCast: quickCastPort,
+    dragInteract: {
+      isEnabled: () => session.commandMapper.dragInteractMode,
+      setEnabled: (enabled) => {
+        session.commandMapper.dragInteractMode = enabled
+      },
+    },
   })
   const pluginMenu = new PluginMenu({
     host: plugins,
@@ -1555,10 +1562,14 @@ export async function startPlayApp(options?: {
     const currentSettings = settingsStore.get()
     const profile = getViewportProfile(currentSettings.viewport)
 
-    if (viewCanvas.width !== profile.width || viewCanvas.height !== profile.height) {
-      viewCanvas.width = profile.width
-      viewCanvas.height = profile.height
+    const pixelScale = crispCanvasScale(viewCanvas, profile.width, profile.height)
+    const backingWidth = profile.width * pixelScale
+    const backingHeight = profile.height * pixelScale
+    if (viewCanvas.width !== backingWidth || viewCanvas.height !== backingHeight) {
+      viewCanvas.width = backingWidth
+      viewCanvas.height = backingHeight
     }
+    renderer.pixelScale = pixelScale
 
     lastRenderSnapshot = renderSceneSourceFrame({
       source: session.sceneSource,

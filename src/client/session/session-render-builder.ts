@@ -31,6 +31,7 @@ import type { LevelView } from '../map/level-view.ts'
 import type { MapService } from '../map/map-service.ts'
 import type { RemoteEntityInterpolator } from '../motion/interpolate.ts'
 import type { LocalMovementPredictor } from '../motion/predictor.ts'
+import type { RenderSmoother } from '../motion/render-smoothing.ts'
 import type { HudManager } from '../ui/hud-manager.ts'
 import type { HudModel } from '../ui-model/hud-model.ts'
 import type { ClientSceneWorldAdapter, SceneAmbientState } from '../view/scene-source.ts'
@@ -72,6 +73,8 @@ export interface SessionRenderBuilderHost {
   lastObjectLightBuildFrame: number
   selfAppearanceCache: SelfAppearanceCacheEntry | null
   tickCounter: number
+  readonly renderSmoother?: RenderSmoother | undefined
+  renderInterpolationAlpha?(): number
   syncActiveAreaFromPlayerPosition(options?: { readonly emitHudSync?: boolean }): LevelView | null
   resolveNeighbourLevelViews(primaryView: LevelView | null | undefined): readonly LevelView[]
   resolveSceneAmbient(
@@ -99,12 +102,21 @@ export function buildSceneSnapshot(host: SessionRenderBuilderHost): ClientSceneW
   // level exists the scene reports not-ready.
   // #549: resolving the active levelView also keeps `world.areaId` and `automapView` in lockstep.
   const predSnap = host.predictor.getSnapshot()
-  const playerSubX = predSnap.x !== 0 || predSnap.y !== 0 ? predSnap.x : host.world.self.x
-  const playerSubY = predSnap.x !== 0 || predSnap.y !== 0 ? predSnap.y : host.world.self.y
+  const smoother = host.renderSmoother
+  const alpha = host.renderInterpolationAlpha?.() ?? 1
+  const tick = host.tickCounter
+  const smooth = <T extends { readonly x: number; readonly y: number }>(key: string, p: T): T => {
+    if (smoother === undefined || (p.x === 0 && p.y === 0)) return p
+    const shown = smoother.smooth(key, p.x, p.y, tick, alpha)
+    return shown.x === p.x && shown.y === p.y ? p : { ...p, x: shown.x, y: shown.y }
+  }
+  const tickPlayer = predSnap.x !== 0 || predSnap.y !== 0 ? predSnap : host.world.self
+  const { x: playerSubX, y: playerSubY } = smooth('self', { x: tickPlayer.x, y: tickPlayer.y })
   const levelView = host.syncActiveAreaFromPlayerPosition({ emitHudSync: true })
   const neighbourLevelViews = host.resolveNeighbourLevelViews(levelView)
   const levelId = levelView?.areaId ?? (host.world.areaId > 0 ? host.world.areaId : 0)
   const actId = levelId > 0 ? getActForArea(levelId) : undefined
+  smoother?.sweep(tick)
   return {
     tick: host.world.frameCount,
     ...(levelId > 0 && actId !== undefined ? { actId, levelId } : {}),
@@ -117,7 +129,7 @@ export function buildSceneSnapshot(host: SessionRenderBuilderHost): ClientSceneW
       levelView && levelView.areaId > 0
         ? host.resolveSceneAmbient(levelView, playerSubX, playerSubY)
         : null,
-    units: host.buildRenderableUnits(),
+    units: host.buildRenderableUnits().map((unit) => smooth(`${unit.kind}:${unit.id}`, unit)),
     levelView,
     neighbourLevelViews,
     tileAtlas: host.mapService?.getTileAtlas() ?? null,

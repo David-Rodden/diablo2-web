@@ -4,6 +4,7 @@
 
 import type { D2WebPlugin } from '../src/client/plugin-host/api.ts'
 import { automapRevealPlugin } from './automap-reveal/index.ts'
+import { dragInteractPlugin } from './drag-interact/index.ts'
 import { dropTrackerPlugin } from './drop-tracker/index.ts'
 import { extendedViewportsPlugin } from './extended-viewports/index.ts'
 import { groundItemBeamPlugin } from './ground-item-beam/index.ts'
@@ -19,4 +20,5 @@ export const BUILTIN_PLUGINS: readonly D2WebPlugin[] = [
   hudEnhancementsPlugin,
   groundItemBeamPlugin,
   quickCastPlugin,
+  dragInteractPlugin,
 ]

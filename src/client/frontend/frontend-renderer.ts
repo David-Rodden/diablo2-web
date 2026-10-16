@@ -12,6 +12,7 @@
  */
 
 import { CursorController } from '../ui/cursor.ts'
+import { crispCanvasScale } from '../view/crisp-scale.ts'
 import type { FontAtlasMeta } from '../ui/font.ts'
 import {
   CAMPFIRE_CLASS_ORDER,
@@ -1887,9 +1888,22 @@ export class FrontendRenderer {
     }
   }
 
+  private syncCrispBackingStore(): void {
+    const pixelScale = crispCanvasScale(this.canvas, 800, 600)
+    if (this.canvas.width !== 800 * pixelScale || this.canvas.height !== 600 * pixelScale) {
+      this.canvas.width = 800 * pixelScale
+      this.canvas.height = 600 * pixelScale
+    }
+    if (typeof this.ctx.setTransform === 'function') {
+      this.ctx.setTransform(pixelScale, 0, 0, pixelScale, 0, 0)
+    }
+    this.ctx.imageSmoothingEnabled = false
+  }
+
   private renderInner(nowMs: number): void {
     this.lastRenderNowMs = nowMs
     const ctx = this.ctx
+    this.syncCrispBackingStore()
     ctx.clearRect(0, 0, 800, 600)
 
     switch (this.state.stage) {

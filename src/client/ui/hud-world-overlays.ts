@@ -39,6 +39,7 @@ import {
 } from '../../common/chat/chat-113c.ts'
 import {
   computeDockingLayout,
+  crispHudDpr,
   shouldRenderHudFrame,
   type DockingLayout,
 } from './hud-viewport-layout.ts'
@@ -246,11 +247,11 @@ export function renderHudFrame(
   const is640 = internal.syncResolutionMode()
   const profile = hud.viewportProfile
   const hasWindow = typeof window !== 'undefined'
-  const dpr = Math.min(hasWindow && window.devicePixelRatio ? window.devicePixelRatio : 1, 2)
   const winW = hasWindow && window.innerWidth ? window.innerWidth : profile.width
   const winH = hasWindow && window.innerHeight ? window.innerHeight : profile.height
   const cssW = Math.max(320, internal.hudCanvas.clientWidth || winW)
   const cssH = Math.max(240, internal.hudCanvas.clientHeight || winH)
+  const dpr = crispHudDpr(cssW, cssH, profile)
   const targetW = Math.round(cssW * dpr)
   const targetH = Math.round(cssH * dpr)
   if (internal.hudCanvas.width !== targetW || internal.hudCanvas.height !== targetH) {
@@ -1410,11 +1411,11 @@ export function renderCursorLayer(hud: HudManager, nowMs: number): void {
   const ctx = internal.ensureCanvas2DContext(rawCtx)
   const profile = hud.viewportProfile
   const hasWindow = typeof window !== 'undefined'
-  const dpr = Math.min(hasWindow && window.devicePixelRatio ? window.devicePixelRatio : 1, 2)
   const winW = hasWindow && window.innerWidth ? window.innerWidth : profile.width
   const winH = hasWindow && window.innerHeight ? window.innerHeight : profile.height
   const cssW = Math.max(320, canvas.clientWidth || winW)
   const cssH = Math.max(240, canvas.clientHeight || winH)
+  const dpr = crispHudDpr(cssW, cssH, profile)
   const targetW = Math.round(cssW * dpr)
   const targetH = Math.round(cssH * dpr)
   if (canvas.width !== targetW || canvas.height !== targetH) {

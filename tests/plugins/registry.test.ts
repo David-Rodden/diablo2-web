@@ -588,6 +588,10 @@ describe('BUILTIN_PLUGINS Registry & Built-In Plugin Lifecycles', () => {
         isEnabled: () => false,
         setEnabled() {},
       },
+      dragInteract: {
+        isEnabled: () => false,
+        setEnabled() {},
+      },
     })
     await host.start()
 

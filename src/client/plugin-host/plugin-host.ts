@@ -43,6 +43,7 @@ import {
   type PluginContext,
   type PluginInstance,
   type PluginLogger,
+  type PluginDragInteractPort,
   type PluginQuickCastPort,
   type PluginSessionView,
   type PluginStatus,
@@ -121,6 +122,7 @@ export interface PluginHostOptions {
    * toggle).
    */
   readonly quickCast?: PluginQuickCastPort | null | undefined
+  readonly dragInteract?: PluginDragInteractPort | null | undefined
 }
 
 interface InternalPluginRecord {
@@ -157,6 +159,8 @@ export class PluginHost {
   private readonly quickCastPort: PluginQuickCastPort | null
   /** Plugins currently claiming Quick Cast (Issue #952); empty set = vanilla behavior. */
   private readonly quickCastClaims = new Set<string>()
+  private readonly dragInteractPort: PluginDragInteractPort | null
+  private readonly dragInteractClaims = new Set<string>()
   private ready = false
   private destroyed = false
   private startPromise: Promise<void> | null = null
@@ -166,6 +170,7 @@ export class PluginHost {
     this.session = options.session
     this.toolbar = options.toolbar ?? null
     this.quickCastPort = options.quickCast ?? null
+    this.dragInteractPort = options.dragInteract ?? null
     this.settingsStore = options.settingsStore ?? getGlobalSettingsStore()
     this.enforceClientDefaults = options.enforceClientDefaults ?? false
     this.configStore =
@@ -490,36 +495,39 @@ export class PluginHost {
    * capability is released automatically on deactivate; the last release restores the
    * vanilla select-on-press behavior.
    */
-  private createQuickCastPort(
+  private createClaimedTogglePort(
     record: InternalPluginRecord,
     isDisposed: () => boolean,
+    portName: string,
+    port: PluginQuickCastPort | null,
+    claims: Set<string>,
   ): PluginQuickCastPort {
     const pluginId = record.plugin.id
     const requirePort = (): PluginQuickCastPort => {
-      if (!this.quickCastPort) {
+      if (!port) {
         throw new Error(
-          `[plugin-host] quickCast port is not wired by the composition root (plugin "${pluginId}")`,
+          `[plugin-host] ${portName} port is not wired by the composition root (plugin "${pluginId}")`,
         )
       }
-      return this.quickCastPort
+      return port
     }
     return {
-      isEnabled: (): boolean => this.quickCastClaims.size > 0,
+      isEnabled: (): boolean => claims.size > 0,
       setEnabled: (enabled: boolean): void => {
         if (isDisposed()) return
-        requirePort()
+        const wired = requirePort()
         const release = (): void => {
           record.disposers.delete(release)
-          this.quickCastClaims.delete(pluginId)
-          if (this.quickCastClaims.size === 0 && this.quickCastPort) {
-            this.quickCastPort.setEnabled(false)
+          claims.delete(pluginId)
+          if (claims.size === 0) {
+            wired.setEnabled(false)
           }
         }
         if (enabled) {
-          if (this.quickCastClaims.has(pluginId)) return
-          this.quickCastClaims.add(pluginId)
+          if (claims.has(pluginId)) return
+          claims.add(pluginId)
           record.disposers.add(release)
-          this.quickCastPort!.setEnabled(true)
+          wired.setEnabled(true)
         } else {
           release()
         }
@@ -1434,7 +1442,20 @@ export class PluginHost {
         }
       })(),
       client: this.createClientCapabilities(record, () => contextDisposed),
-      quickCast: this.createQuickCastPort(record, () => contextDisposed),
+      quickCast: this.createClaimedTogglePort(
+        record,
+        () => contextDisposed,
+        'quickCast',
+        this.quickCastPort,
+        this.quickCastClaims,
+      ),
+      dragInteract: this.createClaimedTogglePort(
+        record,
+        () => contextDisposed,
+        'dragInteract',
+        this.dragInteractPort,
+        this.dragInteractClaims,
+      ),
       lang: (() => {
         const subscribe = (fn: (lang: GameLang) => void): (() => void) => {
           if (contextDisposed) {

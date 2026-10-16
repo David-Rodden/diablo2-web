@@ -215,6 +215,8 @@ export interface PluginQuickCastPort {
   setEnabled(enabled: boolean): void
 }
 
+export type PluginDragInteractPort = PluginQuickCastPort
+
 export interface ToolbarContributionPatch {
   readonly label?: LocalizedText | undefined
   readonly tooltip?: LocalizedText | undefined
@@ -277,6 +279,7 @@ export interface PluginContext {
    * host releases it automatically when the plugin deactivates (vanilla behavior restored).
    */
   readonly quickCast: PluginQuickCastPort
+  readonly dragInteract: PluginDragInteractPort
   readonly lang: {
     get(): GameLang
     subscribe(fn: (lang: GameLang) => void): () => void

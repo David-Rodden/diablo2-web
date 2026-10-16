@@ -419,15 +419,12 @@ describe('Milestone M5 — HudModel, CommandMapper, and OnlineSession', () => {
       expect(predictor.getSnapshot().moving).toBe(true)
       mapper.handlePointerUp(0)
 
-      // 3. Rapid second left-click within 40ms is coalesced by rate limiter and flushed after 120ms
-      const coalescedRec = mapper.handlePointerDown(592, 316, 0, 2040)
-      expect(coalescedRec?.rateLimit.allowed).toBe(false)
-      expect(coalescedRec?.rateLimit.coalesced).toBe(true)
+      const secondRec = mapper.handlePointerDown(592, 316, 0, 2040)
+      expect(secondRec?.rateLimit.allowed).toBe(true)
+      expect(secondRec?.command.type).toBe('Move')
       mapper.handlePointerUp(0)
 
-      const flushed = mapper.tick(2170)
-      expect(flushed).not.toBeNull()
-      expect(flushed?.type).toBe('Move')
+      expect(mapper.tick(2170)).toBeNull()
 
       // 4. Right-click in world space -> SkillAt (hand: 'right')
       const rightRec = mapper.handlePointerDown(464, 268, 2, 3000)
