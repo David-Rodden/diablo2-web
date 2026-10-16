@@ -571,8 +571,7 @@ export class OnlineSession {
   }
 
   renderInterpolationAlpha(): number {
-    const sinceTickMs = performance.now() - this.logicClock.getLastTickMs()
-    return Math.min(1, Math.max(0, sinceTickMs / D2_LOGIC_TICK_MS))
+    return Math.min(1, Math.max(0, (performance.now() - this.logicClock.getLastTickMs()) / D2_LOGIC_TICK_MS))
   }
 
   private asReplayHost(): SessionReplayHost {

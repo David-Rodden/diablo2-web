@@ -145,10 +145,8 @@ const CAPTURE_FIXTURE_FILES = [
   '04-d2gs-idle-60s.d2cap',
 ] as const
 
-function isWholeMultipleOf(width: number, height: number, nativeWidth: number, nativeHeight: number): boolean {
-  const scale = width / nativeWidth
-  return Number.isInteger(scale) && scale >= 1 && height === nativeHeight * scale
-}
+const isWholeMultipleOf = (width: number, height: number, nativeWidth: number, nativeHeight: number): boolean =>
+  Number.isInteger(width / nativeWidth) && width >= nativeWidth && height * nativeWidth === nativeHeight * width
 
 async function main(): Promise<void> {
   const chromeBin = findChromeBinary()

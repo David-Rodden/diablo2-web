@@ -152,16 +152,9 @@ function encodeLatin1(text: string): Uint8Array {
 
 const D2_COLOR_ESCAPE_BYTE = 0xff
 
-function splitOnByte(bytes: Uint8Array, separator: number): Uint8Array[] {
-  const parts: Uint8Array[] = []
-  let start = 0
-  for (let i = 0; i <= bytes.length; i++) {
-    if (i === bytes.length || bytes[i] === separator) {
-      parts.push(bytes.subarray(start, i))
-      start = i + 1
-    }
-  }
-  return parts
+const splitOnByte = (bytes: Uint8Array, separator: number): Uint8Array[] => {
+  const cuts = [-1, ...[...bytes.keys()].filter((i) => bytes[i] === separator), bytes.length]
+  return cuts.slice(1).map((end, i) => bytes.subarray(cuts[i]! + 1, end))
 }
 
 export function createBrowserTextCodec(encoding: SupportedTextEncoding = 'gbk'): TextCodec {
@@ -182,9 +175,7 @@ export function createBrowserTextCodec(encoding: SupportedTextEncoding = 'gbk'):
         return decodeLatin1(bytes)
       }
       if (eff === 'gbk' && bytes.includes(D2_COLOR_ESCAPE_BYTE)) {
-        return splitOnByte(bytes, D2_COLOR_ESCAPE_BYTE)
-          .map((part) => codec.decode(part))
-          .join('\xff')
+        return splitOnByte(bytes, D2_COLOR_ESCAPE_BYTE).map((part) => codec.decode(part)).join('\xff')
       }
       const decoded = decoder.decode(bytes)
       if (eff === 'gbk' && utf8FatalDecoder !== null) {

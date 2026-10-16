@@ -36,7 +36,6 @@ import {
   resolveOverheadBubbleText113c,
   wrapChatText113c,
   type OverheadSpeechRect113c,
-  type WrappedChatLine113c,
 } from '../../common/chat/chat-113c.ts'
 import {
   computeDockingLayout,
@@ -1317,25 +1316,16 @@ export function renderOverheadSpeechBubbles(
  */
 const chatOverlayGlides = new WeakMap<HudManager, LineGlide>()
 
-function chatOverlayGlide(hud: HudManager): LineGlide {
-  let glide = chatOverlayGlides.get(hud)
-  if (glide === undefined) {
-    glide = new LineGlide()
-    chatOverlayGlides.set(hud, glide)
-  }
-  return glide
-}
+const chatOverlayGlide = (hud: HudManager): LineGlide =>
+  chatOverlayGlides.get(hud) ?? chatOverlayGlides.set(hud, new LineGlide()).get(hud)!
 
-function isHudTextMoving(hud: HudManager, nowMs: number): boolean {
-  const speech = hud.worldPanels.npcSpeech
-  const speechScrolling =
-    speech !== null && speech.autoScroll === true && (speech.scrollY ?? 0) < (speech.maxScrollY ?? 0)
-  return (
-    speechScrolling ||
-    chatOverlayGlides.get(hud)?.isMoving(nowMs) === true ||
-    hud.worldPanels.messageLogGlide.isMoving(nowMs)
-  )
-}
+const isSpeechAutoScrolling = (speech: HudManager['worldPanels']['npcSpeech']): boolean =>
+  speech?.autoScroll === true && (speech.scrollY ?? 0) < (speech.maxScrollY ?? 0)
+
+const isHudTextMoving = (hud: HudManager, nowMs: number): boolean =>
+  isSpeechAutoScrolling(hud.worldPanels.npcSpeech) ||
+  chatOverlayGlides.get(hud)?.isMoving(nowMs) === true ||
+  hud.worldPanels.messageLogGlide.isMoving(nowMs)
 
 export function renderChatOverlay(
   hud: HudManager,
@@ -1368,26 +1358,14 @@ export function renderChatOverlay(
   })
 
   const measureFn = (s: string) => hud.font.measureText(s, 'font16')
-  const allLines: WrappedChatLine113c[] = []
-  const lineKeys: string[] = []
-  for (const msg of activeMsgs) {
-    const wrapped = wrapChatText113c(msg.text, measureFn, layout.maxWrapWidth, msg.color ?? 0)
-    wrapped.forEach((wLine, wrapIndex) => {
-      allLines.push(wLine)
-      lineKeys.push(`${msg.createdAtMs ?? ''}|${msg.text}|${wrapIndex}`)
-    })
-  }
+  const allLines = activeMsgs.flatMap((msg) =>
+    wrapChatText113c(msg.text, measureFn, layout.maxWrapWidth, msg.color ?? 0).map((line, wrapIndex) => ({ ...line, key: `${msg.createdAtMs ?? ''}|${msg.text}|${wrapIndex}` })),
+  )
   if (allLines.length === 0) return
 
   const visibleStart = Math.max(0, allLines.length - CHAT_OVERLAY_MAX_ACTIVE_LINES)
-  const glide = chatOverlayGlide(hud).update(
-    lineKeys,
-    visibleStart,
-    allLines.length - visibleStart,
-    CHAT_OVERLAY_LINE_HEIGHT,
-    nowMs,
-  )
-  const firstDrawn = visibleStart - Math.min(visibleStart, Math.ceil(Math.max(0, glide) / CHAT_OVERLAY_LINE_HEIGHT))
+  const glide = chatOverlayGlide(hud).update(allLines.map((l) => l.key), visibleStart, allLines.length - visibleStart, CHAT_OVERLAY_LINE_HEIGHT, nowMs)
+  const firstDrawn = Math.max(0, visibleStart - Math.ceil(Math.max(0, glide) / CHAT_OVERLAY_LINE_HEIGHT))
 
   const lang: TblLang = hud.lang === 'ENG' ? 'ENG' : 'CHI'
   ctx.save()

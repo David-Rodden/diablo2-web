@@ -8,7 +8,7 @@
  * - Seamless CJK (Chinese) fallback with 1px black drop-outline matching Exocet/Formal cap heights
  */
 
-import { physicalGlyphScale, snapToPhysicalPixel, VectorGlyphAtlas } from './vector-glyph-atlas.ts'
+import { physicalGlyphScale, smoothTextSetting, snapToPhysicalPixel, VectorGlyphAtlas } from './vector-glyph-atlas.ts'
 
 export type D2FontName = 'font6' | 'font8' | 'font16' | 'font30' | 'fontexocet10' | 'fontformal12'
 
@@ -676,13 +676,22 @@ const PL2_TEXT_SHIFTS: Record<D2ColorCode, Record<number, readonly [number, numb
 /**
  * Runtime Diablo II Font Manager supporting both bitmap DC6 glyphs and CJK fallback.
  */
+export interface GlyphAtlas {
+  readonly image: HTMLCanvasElement | HTMLImageElement
+  readonly scale: number
+}
+
+export const fontStackFor = (font: string): string => (font.startsWith('fontformal') ? D2_FORMAL_FONT_STACK : D2_EXOCET_FONT_STACK)
+
+export const blitGlyph = (ctx: CanvasRenderingContext2D, { image, scale }: GlyphAtlas, g: FontGlyphMetric, dx: number, dy: number): void =>
+  ctx.drawImage(image, g.x * scale, g.y * scale, g.frameW * scale, g.frameH * scale, dx, dy, g.frameW, g.frameH)
+
 export class D2FontRenderer {
   private metas: Record<string, FontAtlasMeta> = {}
   private images = new Map<string, HTMLImageElement | HTMLCanvasElement>()
   private tintedCache = new Map<string, HTMLCanvasElement>()
   private readonly vectorAtlas = new VectorGlyphAtlas()
   loaded = false
-  smoothText = false
 
   async load(baseUrl = '/ui/fonts'): Promise<void> {
     if (typeof window === 'undefined' && typeof location === 'undefined' && !baseUrl.includes('://')) {
@@ -815,23 +824,13 @@ export class D2FontRenderer {
     return canvas
   }
 
-  private getGlyphAtlas(
-    font: D2FontName,
-    color: D2ColorCode,
-    scale: number,
-  ): { readonly image: HTMLCanvasElement | HTMLImageElement; readonly scale: number } | null {
+  private getGlyphAtlas(font: D2FontName, color: D2ColorCode, scale: number): GlyphAtlas | null {
     const base = this.images.get(font)
     const meta = this.metas[font]
-    if (this.smoothText && scale > 1 && font !== 'font30' && base && meta) {
-      const vector = this.vectorAtlas.get(font, base, meta, {
-        family: font === 'fontformal12' ? D2_FORMAL_FONT_STACK : D2_EXOCET_FONT_STACK,
-        fillColor: D2_PL2_TEXT_COLORS[color] ?? D2_COLOR_HEX[color],
-        baselineRow: FONT_BASELINE_OFFSET[font],
-      }, scale)
-      if (vector) return { image: vector, scale }
-    }
-    const tinted = this.getTintedAtlas(font, color)
-    return tinted ? { image: tinted, scale: 1 } : null
+    const fill = D2_PL2_TEXT_COLORS[color] ?? D2_COLOR_HEX[color]
+    const vector = smoothTextSetting.enabled && scale > 1 && font !== 'font30' && base && meta && this.vectorAtlas.get(font, base, meta, fontStackFor(font), fill, scale)
+    const image = vector || this.getTintedAtlas(font, color)
+    return image ? { image, scale: vector ? scale : 1 } : null
   }
 
   /**
@@ -909,8 +908,7 @@ export class D2FontRenderer {
 
     ctx.save()
     const isTitleFont = font === 'font16' || font === 'font30' || font === 'fontexocet10'
-    const fontStack = font === 'fontformal12' ? D2_FORMAL_FONT_STACK : D2_EXOCET_FONT_STACK
-    ctx.font = `${isTitleFont ? 'bold ' : ''}${pxSize}px ${fontStack}`
+    ctx.font = `${isTitleFont ? 'bold ' : ''}${pxSize}px ${fontStackFor(font)}`
     ctx.textBaseline = 'alphabetic'
 
     if (typeof ctx.drawImage === 'function' && this.hasAnyBlitableGlyph(font, spans)) {
@@ -953,32 +951,9 @@ export class D2FontRenderer {
             const code = normalizeDc6CharCode(rawCode)
             const g = meta.glyphs[code]!
             const adv = g.width
-            const gx = curX
             if (code !== 0x20 && code !== 0xa0 && g.frameW > 0 && g.frameH > 0 && tinted) {
-              if (shadow && span.color !== 'black' && shadowAtlas) {
-                ctx.drawImage(
-                  shadowAtlas.image,
-                  g.x * shadowAtlas.scale,
-                  g.y * shadowAtlas.scale,
-                  g.frameW * shadowAtlas.scale,
-                  g.frameH * shadowAtlas.scale,
-                  gx + 1,
-                  dstY + 1,
-                  g.frameW,
-                  g.frameH,
-                )
-              }
-              ctx.drawImage(
-                tinted.image,
-                g.x * tinted.scale,
-                g.y * tinted.scale,
-                g.frameW * tinted.scale,
-                g.frameH * tinted.scale,
-                gx,
-                dstY,
-                g.frameW,
-                g.frameH,
-              )
+              if (shadow && span.color !== 'black' && shadowAtlas) blitGlyph(ctx, shadowAtlas, g, curX + 1, dstY + 1)
+              blitGlyph(ctx, tinted, g, curX, dstY)
             }
             curX += adv
             i++

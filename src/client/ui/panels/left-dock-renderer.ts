@@ -4,7 +4,7 @@ import { canSocketUiItem, classifyHandSlotItem, computeCursorItemGridPlacement, 
 import { lookupTbl, requireTbl } from '../../i18n/lang.ts'
 import { BAKED_UI_MANIFEST } from '../../../common/items/baked-ui-meta.ts'
 import { buildQuestLogPage, trueTombSymbolFrame113c, INVPS_FRAME_W, INVPS_FRAME_H, INVPS_DRAW_REL_X, INVPS_DRAW_REL_BOTTOM_Y } from '../../world/quest-log-state.ts'
-import { D2_COLOR_INDEX_TO_NAME, MSG_LOG_MAX_VISIBLE_LINES, wrapChatText113c, type WrappedChatLine113c } from '../../../common/chat/chat-113c.ts'
+import { D2_COLOR_INDEX_TO_NAME, MSG_LOG_MAX_VISIBLE_LINES, wrapChatText113c } from '../../../common/chat/chat-113c.ts'
 import { type LeftDockPanelKind, type WorldPanelType, BARKSCROLL_RUNE_POS, BARKSCROLL_GLOW_POS, BARKSCROLL_STEP_THRESHOLDS, STONE_BOX_BG_FILL, BUTTON_HOVER_BOX_PAD_X, BUTTON_HOVER_BOX_MIN_W, BUTTON_HOVER_BOX_H, BUTTON_HOVER_TEXT_OFFSET_Y, VENDOR_BUTTON_HOVER_ANCHOR_Y, VENDOR_STATUS_TEXT_POS, ACT_TAB_LAYOUT, QUEST_SOCKET_DC6_FRAME, questIconTopLeft113c, questSocketTopLeft113c, hitTestQuestSlot113c, STASH_GRID_ORIGIN, STASH_GOLD_BTN_HIT, CUBE_PANEL_ORIGIN, CUBE_GRID_ORIGIN, CUBE_TRANSMUTE_BTN_BOUNDS, CUBE_CLOSE_BTN_BOUNDS, VENDOR_GRID_ORIGIN, VENDOR_GOLD_BOX_RECESS, VENDOR_BUTTON_TABLE_X, VENDOR_BUTTON_DRAW_Y, VENDOR_BUTTON_HIT_Y_MIN, VENDOR_BUTTON_HIT_Y_MAX, VENDOR_BUTTON_HIT_W, VENDOR_BUTTON_SPECS, resolveVendorButtonLayout, VENDOR_TABS, type UseItemPanelKind, isUseItemPanel, USE_ITEM_LAYOUT, USE_ITEM_INSTRUCTION_TBL, USE_ITEM_BUTTON_TBL, hitTestUseItemButton, hitTestUseItemSlot, wrapUseItemText } from './panel-layout-constants.ts'
 import { questFlagWordIndex, getActQuests, resolveWaypointName, getActWaypoints, WAYPOINT_ROW_OFFSETS_Y, getWaypointRowOffsetY, getWaypointTextOffsetY } from './quest-waypoint-data.ts'
 
@@ -1987,21 +1987,15 @@ export function renderActiveLeftPanelImpl(
     ctx.strokeRect(ox + 16, oy + 40, pw - 32, 328)
 
     const measureFn = (s: string) => (hasFont16 && font ? font.measureText(s, 'font16') : s.length * 7)
-    const allLines: WrappedChatLine113c[] = []
-    const lineKeys: string[] = []
-    this.messageLogEntries.forEach((entry, entryIndex) => {
-      const wrapped = wrapChatText113c(entry.text, measureFn, 256, entry.color ?? 0)
-      wrapped.forEach((wLine, wrapIndex) => {
-        allLines.push(wLine)
-        lineKeys.push(`${entry.createdAtMs ?? entryIndex}|${entry.text}|${wrapIndex}`)
-      })
-    })
+    const allLines = this.messageLogEntries.flatMap((entry, entryIndex) =>
+      wrapChatText113c(entry.text, measureFn, 256, entry.color ?? 0).map((line, wrapIndex) => ({ ...line, key: `${entry.createdAtMs ?? entryIndex}|${entry.text}|${wrapIndex}` })),
+    )
 
     const maxVisible = MSG_LOG_MAX_VISIBLE_LINES
     const maxOffset = Math.max(0, allLines.length - maxVisible)
     const clampedOffset = Math.max(0, Math.min(maxOffset, this.messageLogScrollOffset))
     const startIdx = Math.max(0, allLines.length - maxVisible - clampedOffset)
-    const glide = this.messageLogGlide.update(lineKeys, startIdx, maxVisible, 16, performance.now())
+    const glide = this.messageLogGlide.update(allLines.map((l) => l.key), startIdx, maxVisible, 16, performance.now())
     const glideRows = Math.ceil(Math.abs(glide) / 16)
     const firstDrawn = Math.max(0, startIdx - glideRows)
     const visibleSlice = allLines.slice(firstDrawn, startIdx + maxVisible + glideRows)

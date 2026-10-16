@@ -87,10 +87,8 @@ export function computeHudLayout(
   }
 }
 
-export function crispHudDpr(cssW: number, cssH: number, profile: ViewportProfile): number {
-  const { uiScale } = computeDockingLayout(cssW, cssH, 1, profile)
-  return crispRenderDpr(uiScale, devicePixelRatioOrOne())
-}
+export const crispHudDpr = (cssW: number, cssH: number, profile: ViewportProfile): number =>
+  crispRenderDpr(computeDockingLayout(cssW, cssH, 1, profile).uiScale, devicePixelRatioOrOne())
 
 /**
  * On-demand HUD repaint decision. The HUD is a 2D canvas covering the viewport

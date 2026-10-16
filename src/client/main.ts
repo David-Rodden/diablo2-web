@@ -92,7 +92,8 @@ import {
 import { Toolbar } from './toolbar/toolbar.ts'
 import { HudModel } from './ui-model/hud-model.ts'
 import type { SceneFrameSnapshot } from './view/scene-source.ts'
-import { crispCanvasScale } from './view/crisp-scale.ts'
+import { syncCrispBackingStore } from './view/crisp-scale.ts'
+import { smoothTextSetting } from './ui/vector-glyph-atlas.ts'
 import {
   applyViewportProfileToDom,
   getViewportProfile,
@@ -567,15 +568,11 @@ export async function startPlayApp(options?: {
     quickCast: quickCastPort,
     dragInteract: {
       isEnabled: () => session.commandMapper.dragInteractMode,
-      setEnabled: (enabled) => {
-        session.commandMapper.dragInteractMode = enabled
-      },
+      setEnabled: (enabled) => void (session.commandMapper.dragInteractMode = enabled),
     },
     smoothText: {
-      isEnabled: () => hudManager.font.smoothText,
-      setEnabled: (enabled) => {
-        hudManager.font.smoothText = enabled
-      },
+      isEnabled: () => smoothTextSetting.enabled,
+      setEnabled: (enabled) => void (smoothTextSetting.enabled = enabled),
     },
   })
   const pluginMenu = new PluginMenu({
@@ -1645,14 +1642,7 @@ export async function startPlayApp(options?: {
     const currentSettings = settingsStore.get()
     const profile = getViewportProfile(currentSettings.viewport)
 
-    const pixelScale = crispCanvasScale(viewCanvas, profile.width, profile.height)
-    const backingWidth = profile.width * pixelScale
-    const backingHeight = profile.height * pixelScale
-    if (viewCanvas.width !== backingWidth || viewCanvas.height !== backingHeight) {
-      viewCanvas.width = backingWidth
-      viewCanvas.height = backingHeight
-    }
-    renderer.pixelScale = pixelScale
+    renderer.pixelScale = syncCrispBackingStore(viewCanvas, profile.width, profile.height)
 
     lastRenderSnapshot = renderSceneSourceFrame({
       source: session.sceneSource,

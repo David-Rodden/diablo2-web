@@ -155,11 +155,7 @@ export class OutboundRateLimiter {
    * If a movement command is throttled by cooldown, it is coalesced as `pendingMove`
    * so `flushPendingMove(nowMs)` can emit the latest cursor destination when the cooldown expires.
    */
-  tryAcquire(
-    cmd: ClientCommand,
-    nowMs: number = performance.now(),
-    options?: { readonly freshPress?: boolean },
-  ): RateLimitDecision {
+  tryAcquire(cmd: ClientCommand, nowMs: number = performance.now(), options?: { readonly freshPress?: boolean }): RateLimitDecision {
     this.refillTokens(nowMs)
     const category = classifyClientCommand(cmd)
 
@@ -169,8 +165,7 @@ export class OutboundRateLimiter {
       return { allowed: true, category, retryAfterMs: 0 }
     }
 
-    const minInterval =
-      options?.freshPress === true && category === 'movement' ? 0 : this.minIntervalForCategory(category)
+    const minInterval = options?.freshPress && category === 'movement' ? 0 : this.minIntervalForCategory(category)
     const lastCatMs = this.lastSentByCategory.get(category)
     if (lastCatMs !== undefined && nowMs - lastCatMs < minInterval) {
       const retryAfterMs = Math.max(1, minInterval - (nowMs - lastCatMs))

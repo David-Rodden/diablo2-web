@@ -215,8 +215,27 @@ export interface PluginQuickCastPort {
   setEnabled(enabled: boolean): void
 }
 
-export type PluginDragInteractPort = PluginQuickCastPort
-export type PluginSmoothTextPort = PluginQuickCastPort
+export type PluginTogglePort = PluginQuickCastPort
+
+const ACTIVE_STATUS: PluginStatus = { level: 'ok', text: { zh: '已开启', en: 'Active' } }
+const INACTIVE_STATUS: PluginStatus = { level: 'warn', text: { zh: '未开启', en: 'Inactive' } }
+
+export function createTogglePlugin({
+  port,
+  ...meta
+}: Pick<D2WebPlugin, 'id' | 'name' | 'description'> & { readonly port: (ctx: PluginContext) => PluginTogglePort }): D2WebPlugin {
+  return {
+    ...meta,
+    defaultEnabled: true,
+    activate: (ctx) => {
+      port(ctx).setEnabled(true)
+      return {
+        getStatus: () => (port(ctx).isEnabled() ? ACTIVE_STATUS : INACTIVE_STATUS),
+        deactivate: () => port(ctx).setEnabled(false),
+      }
+    },
+  }
+}
 
 export interface ToolbarContributionPatch {
   readonly label?: LocalizedText | undefined
@@ -280,8 +299,8 @@ export interface PluginContext {
    * host releases it automatically when the plugin deactivates (vanilla behavior restored).
    */
   readonly quickCast: PluginQuickCastPort
-  readonly dragInteract: PluginDragInteractPort
-  readonly smoothText: PluginSmoothTextPort
+  readonly dragInteract: PluginTogglePort
+  readonly smoothText: PluginTogglePort
   readonly lang: {
     get(): GameLang
     subscribe(fn: (lang: GameLang) => void): () => void
