@@ -5,6 +5,8 @@ import { PluginHost } from '../../src/client/plugin-host/plugin-host.ts'
 import { BUILTIN_PLUGINS } from '../../plugins/index.ts'
 import { dragInteractPlugin } from '../../plugins/drag-interact/index.ts'
 import { smoothTextPlugin } from '../../plugins/smooth-text/index.ts'
+import { stashDepositAllPlugin } from '../../plugins/stash-deposit-all/index.ts'
+import { experienceBarPlugin } from '../../plugins/experience-bar/index.ts'
 
 const memoryStorage = () => {
   const map = new Map<string, string>()
@@ -19,6 +21,8 @@ const portStub = () => {
 describe.each([
   { plugin: dragInteractPlugin, portName: 'dragInteract' },
   { plugin: smoothTextPlugin, portName: 'smoothText' },
+  { plugin: stashDepositAllPlugin, portName: 'stashDepositAll' },
+  { plugin: experienceBarPlugin, portName: 'xpBar' },
 ])('$plugin.id toggle plugin', ({ plugin, portName }) => {
   const createHost = (port: PluginTogglePort | null) =>
     new PluginHost({

@@ -144,6 +144,7 @@ import {
   syncVitalsFromWorldImpl,
 } from './hud-world-sync.ts'
 import { aggregateUnit } from './stat-engine.ts'
+import { depositAllToStash, type StashDepositResult } from './stash-deposit.ts'
 import type { VendorPriceContext, VendorPriceFn, VendorRepairAllFn } from './vendor-price.ts'
 
 export * from './hud-skill-bonuses.ts'
@@ -1484,6 +1485,14 @@ export class HudModel implements HudCommandSink {
   /** Gold dialog mode 3: `0x4F ClickButton` 0x14 DepositGold. Non-positive amounts send nothing. */
   depositGold(amount: number): void {
     depositGoldImpl(this, amount)
+  }
+
+  private stashDepositRun: Promise<StashDepositResult> | null = null
+
+  depositAllToStash(): Promise<StashDepositResult> {
+    return (this.stashDepositRun ??= depositAllToStash(this, () => this.hudManager?.leftPanel === 'stash').finally(() => {
+      this.stashDepositRun = null
+    }))
   }
 
   /** Gold dialog mode 4: `0x4F ClickButton` 0x13 WithdrawGold. Non-positive amounts send nothing. */

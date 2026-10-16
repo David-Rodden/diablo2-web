@@ -301,6 +301,8 @@ export interface PluginContext {
   readonly quickCast: PluginQuickCastPort
   readonly dragInteract: PluginTogglePort
   readonly smoothText: PluginTogglePort
+  readonly stashDepositAll: PluginTogglePort
+  readonly xpBar: PluginTogglePort
   readonly lang: {
     get(): GameLang
     subscribe(fn: (lang: GameLang) => void): () => void

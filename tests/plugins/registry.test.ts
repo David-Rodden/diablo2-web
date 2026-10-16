@@ -596,6 +596,14 @@ describe('BUILTIN_PLUGINS Registry & Built-In Plugin Lifecycles', () => {
         isEnabled: () => false,
         setEnabled() {},
       },
+      stashDepositAll: {
+        isEnabled: () => false,
+        setEnabled() {},
+      },
+      xpBar: {
+        isEnabled: () => false,
+        setEnabled() {},
+      },
     })
     await host.start()
 

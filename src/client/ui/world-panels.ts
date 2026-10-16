@@ -314,6 +314,7 @@ export class WorldPanelsHud {
   }
   /** Server stat 15 (`goldbank`), written by `HudModel` only; 0 until received (absent stat = 0). */
   stashGold = 0
+  stashDepositAllEnabled = false
   cubeTransmuteCount = 0
   escapeMenuOpen = false
   escapeMenuSelectedIndex: EscapeMenuRowIndex = 2

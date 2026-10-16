@@ -285,6 +285,7 @@ export interface HudCommandSink {
   vendorRepairAll(): void
   /** Gold dialog mode 3: `0x4F` button 0x14. */
   depositGold(amount: number): void
+  depositAllToStash?(): Promise<unknown>
   /** Gold dialog mode 4: `0x4F` button 0x13. */
   withdrawGold(amount: number): void
   /** Stash panel closed: `0x4F` button 0x12 (no reply). */
@@ -452,6 +453,7 @@ export class HudManager {
     readonly expireAtMs?: number | undefined
   }[] = []
   showFps = false
+  showXpBar = false
   currentFps = 0
   pingMs = 0
   trade: any = null
