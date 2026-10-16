@@ -328,6 +328,7 @@ export class WorldPanelsHud {
           1))
     return getStashGoldLimit(resolvedLevel)
   }
+  stashDepositAllEnabled = false
   cubeTransmuteCount = 0
   escapeMenuOpen = false
   escapeMenuSelectedIndex: EscapeMenuRowIndex = 2

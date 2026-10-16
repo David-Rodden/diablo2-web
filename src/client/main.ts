@@ -574,6 +574,14 @@ export async function startPlayApp(options?: {
       isEnabled: () => smoothTextSetting.enabled,
       setEnabled: (enabled) => void (smoothTextSetting.enabled = enabled),
     },
+    stashDepositAll: {
+      isEnabled: () => hudManager.worldPanels.stashDepositAllEnabled,
+      setEnabled: (enabled) => void (hudManager.worldPanels.stashDepositAllEnabled = enabled),
+    },
+    xpBar: {
+      isEnabled: () => hudManager.showXpBar,
+      setEnabled: (enabled) => void (hudManager.showXpBar = enabled),
+    },
   })
   const pluginMenu = new PluginMenu({
     host: plugins,
