@@ -608,6 +608,10 @@ describe('BUILTIN_PLUGINS Registry & Built-In Plugin Lifecycles', () => {
         isEnabled: () => false,
         setEnabled() {},
       },
+      smoothUpscale: {
+        isEnabled: () => false,
+        setEnabled() {},
+      },
       autoCombat: {
         getKey: () => null,
         setKey() {},

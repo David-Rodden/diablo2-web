@@ -33,6 +33,7 @@
  * a flush per colour.
  */
 import type { AtlasFrame, SpriteAtlas } from './atlas.ts'
+import { FsrUpscaler } from './fsr-upscale.ts'
 import type { Pl2, Pl2Transform } from '../../common/formats/pl2.ts'
 import {
   DEFAULT_CHAMPION_TRANSFORM_113C,
@@ -423,6 +424,10 @@ export class SpriteRenderer {
   private batchTextureCount = 0
   private camera: Camera = { x: 0, y: 0, zoom: 1 }
   pixelScale = 1
+  sceneSize: { readonly width: number; readonly height: number } | null = null
+  private upscaler: FsrUpscaler | null = null
+  private targetWidth = 800
+  private targetHeight = 600
 
   /** Lighting parameters. */
   private lightingEnabled = false
@@ -589,6 +594,7 @@ export class SpriteRenderer {
       options.onContextLost?.(event)
     }
     this.handleContextRestored = (): void => {
+      this.upscaler = null
       this.cachedCameraX = Number.NaN
       this.cachedCameraY = Number.NaN
       this.cachedViewportWidth = Number.NaN
@@ -1304,9 +1310,11 @@ export class SpriteRenderer {
       this.currentBlendMode = 'normal'
       gl.blendFunc(gl.ONE ?? 1, gl.ONE_MINUS_SRC_ALPHA)
     }
-    const vpWidth = gl.drawingBufferWidth ?? this.canvas.width ?? 800
-    const vpHeight = gl.drawingBufferHeight ?? this.canvas.height ?? 600
-    gl.viewport(0, 0, vpWidth, vpHeight)
+    if (this.sceneSize) (this.upscaler ??= new FsrUpscaler(gl)).bindScene(this.sceneSize.width, this.sceneSize.height)
+    else if (this.upscaler) gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    this.targetWidth = this.sceneSize?.width ?? gl.drawingBufferWidth ?? this.canvas.width ?? 800
+    this.targetHeight = this.sceneSize?.height ?? gl.drawingBufferHeight ?? this.canvas.height ?? 600
+    gl.viewport(0, 0, this.targetWidth, this.targetHeight)
     gl.clearColor(clear[0], clear[1], clear[2], 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
   }
@@ -1314,6 +1322,12 @@ export class SpriteRenderer {
   /** Finish a frame by flushing all pending quads. */
   end(): void {
     this.flush()
+  }
+
+  present(): void {
+    if (this.disposed || !this.sceneSize || !this.upscaler) return
+    this.flush()
+    this.upscaler.present(this.gl.drawingBufferWidth, this.gl.drawingBufferHeight)
   }
 
   /**
@@ -1662,8 +1676,8 @@ export class SpriteRenderer {
       this.cachedCameraY = camY
     }
 
-    const vpWidth = gl.drawingBufferWidth ?? this.canvas.width ?? 800
-    const vpHeight = gl.drawingBufferHeight ?? this.canvas.height ?? 600
+    const vpWidth = this.targetWidth
+    const vpHeight = this.targetHeight
     if (vpWidth !== this.cachedViewportWidth || vpHeight !== this.cachedViewportHeight) {
       gl.uniform2f(this.uniformViewport, vpWidth, vpHeight)
       this.cachedViewportWidth = vpWidth
@@ -1741,6 +1755,8 @@ export class SpriteRenderer {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.upscaler?.dispose()
+    this.upscaler = null
 
     this.cachedCameraX = Number.NaN
     this.cachedCameraY = Number.NaN

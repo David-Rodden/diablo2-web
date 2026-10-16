@@ -145,8 +145,8 @@ const CAPTURE_FIXTURE_FILES = [
   '04-d2gs-idle-60s.d2cap',
 ] as const
 
-const isWholeMultipleOf = (width: number, height: number, nativeWidth: number, nativeHeight: number): boolean =>
-  Number.isInteger(width / nativeWidth) && width >= nativeWidth && height * nativeWidth === nativeHeight * width
+const matchesNativeAspect = (width: number, height: number, nativeWidth: number, nativeHeight: number): boolean =>
+  width > 0 && height > 0 && Math.abs(width / height - nativeWidth / nativeHeight) < 0.01
 
 async function main(): Promise<void> {
   const chromeBin = findChromeBinary()
@@ -655,8 +655,8 @@ async function main(): Promise<void> {
     })()`)
     console.log('[verify-play] Gate 4 (Dual Viewport & Bilingual Toggle):', gate4)
     if (
-      !isWholeMultipleOf(gate4.w800, gate4.h600, 800, 600) ||
-      !isWholeMultipleOf(gate4.w1024, gate4.h768, 1024, 768) ||
+      !matchesNativeAspect(gate4.w800, gate4.h600, 800, 600) ||
+      !matchesNativeAspect(gate4.w1024, gate4.h768, 1024, 768) ||
       gate4.enLang !== 'en' ||
       gate4.zhLang !== 'zh'
     ) {

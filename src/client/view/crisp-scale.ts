@@ -18,3 +18,8 @@ export const syncCrispBackingStore = (canvas: HTMLCanvasElement, nativeWidth: nu
   if (canvas.width !== nativeWidth * scale || canvas.height !== nativeHeight * scale) Object.assign(canvas, { width: nativeWidth * scale, height: nativeHeight * scale })
   return scale
 }
+
+export const syncPhysicalBackingStore = (canvas: HTMLCanvasElement): void => {
+  const [width, height] = [canvas.clientWidth, canvas.clientHeight].map((css) => Math.max(1, Math.round(css * devicePixelRatioOrOne())))
+  if (canvas.width !== width || canvas.height !== height) Object.assign(canvas, { width, height })
+}
