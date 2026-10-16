@@ -581,6 +581,10 @@ export async function startPlayApp(options?: {
       getKey: () => session.commandMapper.autoCombatKey,
       setKey: (key) => void (session.commandMapper.autoCombatKey = key),
     },
+    autoPotion: {
+      getThresholds: () => session.commandMapper.autoPotionThresholds,
+      setThresholds: (thresholds) => void (session.commandMapper.autoPotionThresholds = thresholds),
+    },
   })
   const pluginMenu = new PluginMenu({
     host: plugins,

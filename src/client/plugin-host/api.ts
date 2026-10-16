@@ -19,6 +19,7 @@ import {
   type LightingPresetConfig,
 } from '../scene/lighting-presets.ts'
 import type { OnlineSession } from '../session/online-session.ts'
+import type { AutoPotionThresholds } from '../input/auto-potion.ts'
 import {
   VALID_AUTOMAP_REVEAL_MODES,
   VALID_LIGHTING_PRESETS,
@@ -222,6 +223,13 @@ export interface PluginAutoCombatPort {
   setKey(key: string | null): void
 }
 
+export type { AutoPotionThresholds }
+
+export interface PluginAutoPotionPort {
+  getThresholds(): AutoPotionThresholds | null
+  setThresholds(thresholds: AutoPotionThresholds | null): void
+}
+
 const ACTIVE_STATUS: PluginStatus = { level: 'ok', text: { zh: '已开启', en: 'Active' } }
 const INACTIVE_STATUS: PluginStatus = { level: 'warn', text: { zh: '未开启', en: 'Inactive' } }
 
@@ -312,6 +320,7 @@ export interface PluginContext {
   readonly smoothUpscale: PluginTogglePort
   readonly upgradeHints: PluginTogglePort
   readonly autoCombat: PluginAutoCombatPort
+  readonly autoPotion: PluginAutoPotionPort
   readonly lang: {
     get(): GameLang
     subscribe(fn: (lang: GameLang) => void): () => void

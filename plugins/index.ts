@@ -4,6 +4,7 @@
 
 import type { D2WebPlugin } from '../src/client/plugin-host/api.ts'
 import { autoCombatPlugin } from './auto-combat/index.ts'
+import { autoPotionPlugin } from './auto-potion/index.ts'
 import { autoGoldPickupPlugin } from './auto-gold-pickup/index.ts'
 import { automapRevealPlugin } from './automap-reveal/index.ts'
 import { dragInteractPlugin } from './drag-interact/index.ts'
@@ -34,5 +35,6 @@ export const BUILTIN_PLUGINS: readonly D2WebPlugin[] = [
   experienceBarPlugin,
   autoGoldPickupPlugin,
   autoCombatPlugin,
+  autoPotionPlugin,
   upgradeHintsPlugin,
 ]

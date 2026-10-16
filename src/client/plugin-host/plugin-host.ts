@@ -45,6 +45,7 @@ import {
   type PluginLogger,
   type PluginQuickCastPort,
   type PluginAutoCombatPort,
+  type PluginAutoPotionPort,
   type PluginTogglePort,
   type PluginSessionView,
   type PluginStatus,
@@ -131,6 +132,7 @@ export interface PluginHostOptions {
   readonly smoothUpscale?: PluginTogglePort | null | undefined
   readonly upgradeHints?: PluginTogglePort | null | undefined
   readonly autoCombat?: PluginAutoCombatPort | null | undefined
+  readonly autoPotion?: PluginAutoPotionPort | null | undefined
 }
 
 const TOGGLE_PORT_NAMES = ['quickCast', 'dragInteract', 'smoothText', 'stashDepositAll', 'xpBar', 'autoGoldPickup', 'smoothUpscale', 'upgradeHints'] as const
@@ -168,6 +170,7 @@ export class PluginHost {
     NATIVE_113C_VIEWPORT_RESOLUTIONS
   private readonly unsubConfig: () => void
   private readonly autoCombatPort: PluginAutoCombatPort | null
+  private readonly autoPotionPort: PluginAutoPotionPort | null
   private readonly togglePorts: ReadonlyMap<TogglePortName, { readonly port: PluginTogglePort | null; readonly claims: Set<string> }>
   private ready = false
   private destroyed = false
@@ -178,6 +181,7 @@ export class PluginHost {
     this.session = options.session
     this.toolbar = options.toolbar ?? null
     this.autoCombatPort = options.autoCombat ?? null
+    this.autoPotionPort = options.autoPotion ?? null
     this.togglePorts = new Map(TOGGLE_PORT_NAMES.map((name) => [name, { port: options[name] ?? null, claims: new Set<string>() }]))
     this.settingsStore = options.settingsStore ?? getGlobalSettingsStore()
     this.enforceClientDefaults = options.enforceClientDefaults ?? false
@@ -532,6 +536,15 @@ export class PluginHost {
       return port
     }
     return { getKey: () => port?.getKey() ?? null, setKey: (key) => requirePort().setKey(key) }
+  }
+
+  private createAutoPotionPort(pluginId: string): PluginAutoPotionPort {
+    const port = this.autoPotionPort
+    const requirePort = (): PluginAutoPotionPort => {
+      if (!port) throw new Error(`[plugin-host] autoPotion port is not wired by the composition root (plugin "${pluginId}")`)
+      return port
+    }
+    return { getThresholds: () => port?.getThresholds() ?? null, setThresholds: (thresholds) => requirePort().setThresholds(thresholds) }
   }
 
   private createTogglePorts(record: InternalPluginRecord, isDisposed: () => boolean): Record<TogglePortName, PluginTogglePort> {
@@ -1447,6 +1460,7 @@ export class PluginHost {
       client: this.createClientCapabilities(record, () => contextDisposed),
       ...this.createTogglePorts(record, () => contextDisposed),
       autoCombat: this.createAutoCombatPort(record.plugin.id),
+      autoPotion: this.createAutoPotionPort(record.plugin.id),
       lang: (() => {
         const subscribe = (fn: (lang: GameLang) => void): (() => void) => {
           if (contextDisposed) {
