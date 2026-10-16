@@ -217,6 +217,11 @@ export interface PluginQuickCastPort {
 
 export type PluginTogglePort = PluginQuickCastPort
 
+export interface PluginAutoCombatPort {
+  getKey(): string | null
+  setKey(key: string | null): void
+}
+
 const ACTIVE_STATUS: PluginStatus = { level: 'ok', text: { zh: '已开启', en: 'Active' } }
 const INACTIVE_STATUS: PluginStatus = { level: 'warn', text: { zh: '未开启', en: 'Inactive' } }
 
@@ -304,6 +309,7 @@ export interface PluginContext {
   readonly stashDepositAll: PluginTogglePort
   readonly xpBar: PluginTogglePort
   readonly autoGoldPickup: PluginTogglePort
+  readonly autoCombat: PluginAutoCombatPort
   readonly lang: {
     get(): GameLang
     subscribe(fn: (lang: GameLang) => void): () => void

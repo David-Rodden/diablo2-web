@@ -165,7 +165,7 @@ export function tickSessionFrame(
   const clampedDt = Math.min(200, safeDt)
   host.tickCounter++
   host.commandMapper.tick(nowMs)
-  host.commandMapper.pickUpNearbyGold(nowMs)
+  host.commandMapper.tickAssists(nowMs)
 
   const selfUnit = host.world.getUnit('player', host.world.selfId || 1)
   if (selfUnit) {

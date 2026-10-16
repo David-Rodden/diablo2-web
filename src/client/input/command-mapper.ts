@@ -96,6 +96,7 @@ export const ALLY_OR_PET_TARGET_SKILL_IDS = new Set<number>(TARGET_PET_OR_ALLY_S
 
 const ITEM_PICKUP_REACH_SUBTILES = 4
 const GOLD_RETRY_MS = 1000
+const AUTO_COMBAT_REPEAT_MS = 40
 const CARRIED_GOLD_PER_LEVEL = 10_000
 const INTERACTION_PANELS = new Set(['stash', 'cube', 'vendor', 'hire', 'imbue', 'add_sockets', 'personalize', 'trade', 'waypoint'])
 
@@ -296,6 +297,11 @@ export class CommandMapper {
   autoGoldPickup = false
   private readonly goldRetryAt = new Map<number, number>()
 
+  private autoCombatKeyValue: string | null = null
+  private autoCombatOn = false
+  private autoCombatTargetId: number | null = null
+  private lastAutoCombatMs = Number.NEGATIVE_INFINITY
+
   /** Default F1..F8 skill hotkey bindings (`key.toUpperCase()` -> binding). */
   private readonly skillHotkeys = new Map<string, SkillHotkeyBinding>()
 
@@ -381,6 +387,69 @@ export class CommandMapper {
     if (nearest === undefined) return
     this.goldRetryAt.set(nearest.id, nowMs + GOLD_RETRY_MS)
     this.sendCommand({ type: 'ItemPickup', itemId: nearest.id, toCursor: false }, nowMs)
+  }
+
+  tickAssists(nowMs: number): void {
+    this.pickUpNearbyGold(nowMs)
+    this.runAutoCombat(nowMs)
+  }
+
+  runAutoCombat(nowMs: number): void {
+    if (!this.autoCombatOn || this.leftMouseDown || this.world.isDead || this.isInWorldInteraction() || nowMs - this.lastAutoCombatMs < AUTO_COMBAT_REPEAT_MS) return
+    const target = this.resolveAutoCombatTarget()
+    if (target === null) return
+    const freshTarget = target.id !== this.autoCombatTargetId
+    this.autoCombatTargetId = target.id
+    this.lastAutoCombatMs = nowMs
+    this.triggerPrimaryWorldAction(target.x, target.y, target, nowMs, !freshTarget)
+  }
+
+  private isAutoCombatTarget(unit: ClientUnit): boolean {
+    if (unit.unitType !== 'monster' || this.isTownOrInteractiveNpc(unit) || this.isFriendlySummonOrPet(unit) || this.isMonsterCorpse(unit)) return false
+    const shown = this.shownPosition(unit)
+    const screen = this.camera.subtileToScreen(shown.x, shown.y)
+    const { width, height } = this.camera.viewportProfile
+    return screen.x >= 0 && screen.y >= 0 && screen.x <= width && screen.y <= height && !this.isPointIntercepted(screen.x, screen.y)
+  }
+
+  private resolveAutoCombatTarget(): ClientUnit | null {
+    this.centerCameraOnShownSelf()
+    const current = this.autoCombatTargetId === null ? undefined : this.world.getUnit('monster', this.autoCombatTargetId)
+    if (current !== undefined && this.isAutoCombatTarget(current)) return current
+    const self = this.selfTickPosition()
+    const distance = (unit: ClientUnit) => Math.hypot(unit.x - self.x, unit.y - self.y)
+    return [...this.world.units.values()].filter((unit) => this.isAutoCombatTarget(unit)).sort((a, b) => distance(a) - distance(b))[0] ?? null
+  }
+
+  private isAutoCombatKey(key: string): boolean {
+    return this.autoCombatKey !== null && (key === ' ' ? 'SPACE' : key.toUpperCase()) === this.autoCombatKey
+  }
+
+  private engagedMonsterId: number | null = null
+
+  private engageMonster(id: number): void {
+    this.engagedMonsterId = id
+    this.hudModel?.setHoveredMonster(id)
+  }
+
+  private showHoveredMonster(id: number | null): void {
+    const engaged = this.engagedMonsterId !== null && (this.leftMouseDown || this.autoCombatOn) && (this.world.getUnit('monster', this.engagedMonsterId)?.lifePct ?? 0) > 0
+    if (!engaged) this.hudModel?.setHoveredMonster(id)
+  }
+
+  get autoCombatKey(): string | null {
+    return this.autoCombatKeyValue
+  }
+
+  set autoCombatKey(key: string | null) {
+    this.autoCombatKeyValue = key
+    this.setAutoCombatOn(false)
+  }
+
+  private setAutoCombatOn(on: boolean): void {
+    this.autoCombatOn = on
+    this.autoCombatTargetId = null
+    this.hudManager.autoCombatBadge = this.autoCombatKeyValue === null ? null : { on, key: this.autoCombatKeyValue }
   }
 
   private isInWorldInteraction(): boolean {
@@ -1273,7 +1342,7 @@ export class CommandMapper {
     if (this.isPointIntercepted(screenX, resolvedY)) {
       if (!this.selectionLocked) {
         this.hoveredUnit = null
-        this.hudModel?.setHoveredMonster(null)
+        this.showHoveredMonster(null)
       }
       return
     }
@@ -1288,9 +1357,9 @@ export class CommandMapper {
         !this.isTownOrInteractiveNpc(target.hoveredUnit) &&
         !this.isFriendlySummonOrPet(target.hoveredUnit)
       ) {
-        this.hudModel?.setHoveredMonster(target.hoveredUnit.id)
+        this.showHoveredMonster(target.hoveredUnit.id)
       } else {
-        this.hudModel?.setHoveredMonster(null)
+        this.showHoveredMonster(null)
       }
     }
 
@@ -2000,6 +2069,7 @@ export class CommandMapper {
             return null
           }
           this.cancelActiveNpcOrStashForWorldAction(hoveredUnit, selfX, selfY, nowMs)
+          if (hoveredUnit.unitType === 'monster') this.engageMonster(hoveredUnit.id)
           return this.dispatchRateLimited(
             {
               type: 'SkillOn',
@@ -2221,10 +2291,16 @@ export class CommandMapper {
       altKey?: boolean | undefined
       ctrlKey?: boolean | undefined
       metaKey?: boolean | undefined
+      repeat?: boolean | undefined
       preventDefault?: (() => void) | undefined
     },
     nowMs = performance.now(),
   ): boolean {
+    if (this.isAutoCombatKey(event.key)) {
+      if (!event.repeat) this.setAutoCombatOn(!this.autoCombatOn)
+      event.preventDefault?.()
+      return true
+    }
     const handled = this.handleKeyDownInternal(event, nowMs)
     if (handled && event && typeof event === 'object') {
       ;(event as { _d2HandledByCommandMapper?: boolean })._d2HandledByCommandMapper = true
@@ -2562,6 +2638,7 @@ export class CommandMapper {
    * Reset transient modifier and mouse down states (e.g. on window blur).
    */
   resetModifiers(): void {
+    this.autoCombatTargetId = null
     this.shiftHeld = false
     this.altHeld = false
     this.leftMouseDown = false

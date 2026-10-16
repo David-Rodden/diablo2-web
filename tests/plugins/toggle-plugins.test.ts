@@ -8,6 +8,7 @@ import { smoothTextPlugin } from '../../plugins/smooth-text/index.ts'
 import { stashDepositAllPlugin } from '../../plugins/stash-deposit-all/index.ts'
 import { experienceBarPlugin } from '../../plugins/experience-bar/index.ts'
 import { autoGoldPickupPlugin } from '../../plugins/auto-gold-pickup/index.ts'
+import { autoCombatPlugin } from '../../plugins/auto-combat/index.ts'
 
 const memoryStorage = () => {
   const map = new Map<string, string>()
@@ -71,3 +72,24 @@ describe.each([
     await host.destroy()
   })
 })
+
+describe('auto-combat plugin', () => {
+  it('binds the configured key while active, follows setting changes and unbinds on teardown', async () => {
+    let key: string | null = null
+    const host = new PluginHost({
+      plugins: [autoCombatPlugin],
+      configStore: new PluginConfigStore([autoCombatPlugin], { storage: memoryStorage() }),
+      session: { phase: 'lobby', world: {}, loginHost: null, getSnapshot: () => ({}), onServerEvent: () => () => {}, onStateChange: () => () => {} } as unknown as PluginSessionView,
+      toolbar: { setPluginsButtonState() {}, addContribution: () => () => {} },
+      autoCombat: { getKey: () => key, setKey: (k) => void (key = k) },
+      autoStart: false,
+    })
+    await host.start()
+    expect([key, host.getStatus('auto-combat').level]).toEqual(['E', 'ok'])
+    host.setSetting('auto-combat', 'key', 'SPACE')
+    expect(key).toBe('SPACE')
+    await host.destroy()
+    expect(key).toBeNull()
+  })
+})
+
