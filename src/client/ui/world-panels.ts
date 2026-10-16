@@ -10,6 +10,7 @@
 
 
 import { LineGlide } from './line-glide.ts'
+import type { UpgradeVerdict } from '../../common/items/item-comparison.ts'
 import { D2FontRenderer, type D2ColorCode } from './font.ts'
 import { GRID_ITEM_BG_BLUE, GRID_ITEM_BG_GREEN, GRID_ITEM_BG_RED, canPlayerUseUiItem, drawImageWithEtherealAlpha, drawItemSocketOverlay, isUiItemEthereal, nextPlayerContextSeq, resolveGridItemBackgroundFill, resolveItemSpriteRect, type GridPlacement, type InventoryPanel, type PlayerItemRequirementContext, type UiInventoryItem } from './inventory.ts'
 import type { Item } from '../../common/items/items.ts'
@@ -329,6 +330,7 @@ export class WorldPanelsHud {
     return getStashGoldLimit(resolvedLevel)
   }
   stashDepositAllEnabled = false
+  upgradeVerdictFor: (item: UiInventoryItem) => UpgradeVerdict | null = () => null
   cubeTransmuteCount = 0
   escapeMenuOpen = false
   escapeMenuSelectedIndex: EscapeMenuRowIndex = 2

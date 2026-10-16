@@ -591,6 +591,10 @@ export async function startPlayApp(options?: {
       isEnabled: () => smoothUpscaleSetting.enabled,
       setEnabled: (enabled) => void (smoothUpscaleSetting.enabled = enabled),
     },
+    upgradeHints: {
+      isEnabled: () => hudManager.upgradeHints,
+      setEnabled: (enabled) => void (hudManager.upgradeHints = enabled),
+    },
     autoCombat: {
       getKey: () => session.commandMapper.autoCombatKey,
       setKey: (key) => void (session.commandMapper.autoCombatKey = key),

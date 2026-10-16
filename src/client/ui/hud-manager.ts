@@ -29,9 +29,14 @@ import { BAKED_UI_MANIFEST } from '../../common/items/baked-ui-meta.ts'
 import { resolveHirelingName } from '../../common/units/hireling-table.ts'
 import {
   InventoryPanel,
+  canPlayerUseUiItem,
+  isUiItemUnidentified,
   type EquipSlotId,
   type UiInventoryItem,
 } from './inventory.ts'
+import { upgradeVerdict, type UpgradeVerdict } from '../../common/items/item-comparison.ts'
+import { onlineItemDataToUiInventoryItem } from '../../common/items/item-bridge.ts'
+import type { ItemData } from '../../netproto/index.ts'
 import { D2_EXPERIENCE_TABLE_99 } from '../../common/skills/formulas.ts'
 import { CharacterSheetPanel, type BaseStatKey } from './character-sheet.ts'
 import { SkillTreePanel } from './skill-tree-panel.ts'
@@ -344,7 +349,7 @@ export class HudManager {
   readonly inventory = new InventoryPanel()
   readonly charSheet = new CharacterSheetPanel()
   readonly skillTree = new SkillTreePanel()
-  readonly worldPanels = new WorldPanelsHud()
+  readonly worldPanels = Object.assign(new WorldPanelsHud(), { upgradeVerdictFor: (item: UiInventoryItem) => this.upgradeVerdictFor(item) })
   readonly cursor = new CursorController()
 
   /**
@@ -461,6 +466,11 @@ export class HudManager {
   showPartyPortraits = true
   helpOverlayOpen = false
   showXpBar = false
+  upgradeHints = false
+  resolveGroundItem: ((unitId: number) => ItemData | undefined) | null = null
+  private readonly groundUiItems = new WeakMap<ItemData, UiInventoryItem>()
+  private upgradeVerdicts = new Map<UiInventoryItem, UpgradeVerdict | null>()
+  private upgradeMarkersKey = ''
   autoCombatBadge: { readonly on: boolean; readonly key: string } | null = null
   currentFps = 0
   pingMs = 0
@@ -1728,6 +1738,25 @@ export class HudManager {
 
   private computeActiveSkillDmgString(skillId: number): string {
     return computeHudSkillDamageString(skillId, this)
+  }
+
+  upgradeVerdictFor(item: UiInventoryItem): UpgradeVerdict | null {
+    if (!this.upgradeHints) return null
+    const context = this.inventory.playerContext
+    const key = `${Object.values(this.inventory.equipped).map((e) => (typeof e === 'object' && e ? e.id : '-')).join(',')}|${JSON.stringify(context)}`
+    if (key !== this.upgradeMarkersKey) [this.upgradeVerdicts, this.upgradeMarkersKey] = [new Map(), key]
+    if (!this.upgradeVerdicts.has(item)) {
+      this.upgradeVerdicts.set(item, upgradeVerdict(item, this.inventory.equipped, { canUse: canPlayerUseUiItem(item, context), unidentified: isUiItemUnidentified(item) }))
+    }
+    return this.upgradeVerdicts.get(item) ?? null
+  }
+
+  groundUpgradeVerdict(unitId: number): UpgradeVerdict | null {
+    const data = this.upgradeHints ? this.resolveGroundItem?.(unitId) : undefined
+    if (data === undefined) return null
+    const item = this.groundUiItems.get(data) ?? onlineItemDataToUiInventoryItem(data)
+    this.groundUiItems.set(data, item)
+    return this.upgradeVerdictFor(item)
   }
 
   private buildControlBarState() {

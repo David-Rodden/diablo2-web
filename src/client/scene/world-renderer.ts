@@ -1,4 +1,5 @@
 import { CANONICAL_113C_OVERLAYS } from '../../common/skills/missiles-data.ts'
+import { upgradeSuffix } from '../ui/upgrade-marker.ts'
 import { resolveSkillSequenceFrame } from '../../common/skills/skill-anim-modes.ts'
 import {
   computeAnimFrameIndex,
@@ -2799,9 +2800,10 @@ export function renderSceneSourceFrame(ctx: SceneSourceRenderContext): SceneFram
                 u.goldAmount,
               )
             : undefined
-        const labelText = isEn
-          ? (u.name || meta?.labelEn || rawCode || `Item #${u.unitId}`)
-          : (u.nameZh || meta?.labelZh || u.name || meta?.labelEn || rawCode || `Item #${u.unitId}`)
+        const labelText =
+          (isEn
+            ? (u.name || meta?.labelEn || rawCode || `Item #${u.unitId}`)
+            : (u.nameZh || meta?.labelZh || u.name || meta?.labelEn || rawCode || `Item #${u.unitId}`)) + upgradeSuffix(hudManager.groundUpgradeVerdict(u.unitId))
         const color =
           u.itemColor ||
           meta?.color ||

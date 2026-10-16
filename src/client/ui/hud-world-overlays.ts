@@ -26,6 +26,7 @@ import { requireTbl, type TblLang } from '../i18n/lang.ts'
 import { LineGlide } from './line-glide.ts'
 import { drawXpBar } from './xp-bar.ts'
 import { drawAutoCombatBadge } from './auto-combat-badge.ts'
+import { drawUpgradeCrosses } from './upgrade-marker.ts'
 import type { GroundItemEnhancementsConfig } from '../settings/client-settings.ts'
 import {
   CHAT_OVERLAY_LINE_HEIGHT,
@@ -452,6 +453,7 @@ export function renderHudFrame(
         color: d2Color,
         align: 'center',
       })
+      drawUpgradeCrosses(ctx, hud.font, box.text, hud.groundUpgradeVerdict(box.id), textCenterX, textBaselineY)
     }
     ctx.restore()
   }

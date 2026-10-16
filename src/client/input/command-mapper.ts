@@ -105,6 +105,8 @@ export const ALLY_OR_PET_TARGET_SKILL_IDS = new Set<number>(TARGET_PET_OR_ALLY_S
 
 const ITEM_PICKUP_REACH_SUBTILES = 4
 const GOLD_RETRY_MS = 1000
+const GOLD_DETOUR_RETRY_MS = 2500
+const AUTO_GOLD_RADIUS_SUBTILES = 20
 const AUTO_COMBAT_REPEAT_MS = 40
 const CARRIED_GOLD_PER_LEVEL = 10_000
 const INTERACTION_PANELS = new Set(['stash', 'cube', 'vendor', 'hire', 'imbue', 'add_sockets', 'personalize', 'trade', 'waypoint'])
@@ -416,11 +418,19 @@ export class CommandMapper {
     const nearest = [...ground.values()]
       .filter((item) => item.code.trim() === 'gld' && (this.goldRetryAt.get(item.id) ?? 0) <= nowMs)
       .map((item) => this.world.getUnit('item', item.id))
-      .filter((unit): unit is ClientUnit => unit !== undefined && distance(unit) <= ITEM_PICKUP_REACH_SUBTILES)
+      .filter((unit): unit is ClientUnit => unit !== undefined && distance(unit) <= AUTO_GOLD_RADIUS_SUBTILES)
       .sort((a, b) => distance(a) - distance(b))[0]
     if (nearest === undefined) return
-    this.goldRetryAt.set(nearest.id, nowMs + GOLD_RETRY_MS)
-    this.sendCommand({ type: 'ItemPickup', itemId: nearest.id, toCursor: false }, nowMs)
+    const inReach = distance(nearest) <= ITEM_PICKUP_REACH_SUBTILES
+    if (!inReach && !this.isFreeForGoldDetour()) return
+    this.goldRetryAt.set(nearest.id, nowMs + (inReach ? GOLD_RETRY_MS : GOLD_DETOUR_RETRY_MS))
+    if (inReach) this.sendCommand({ type: 'ItemPickup', itemId: nearest.id, toCursor: false }, nowMs)
+    else this.triggerPrimaryWorldAction(nearest.x, nearest.y, nearest, nowMs)
+  }
+
+  private isFreeForGoldDetour(): boolean {
+    const fighting = this.autoCombatOn && this.resolveAutoCombatTarget() !== null
+    return !this.leftMouseDown && !this.rightMouseDown && !fighting && !this.predictor?.getSnapshot().moving
   }
 
   tickAssists(nowMs: number): void {
