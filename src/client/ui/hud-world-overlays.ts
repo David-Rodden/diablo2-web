@@ -696,7 +696,9 @@ export function renderHudFrame(
   hud.renderChatOverlay(ctx, profile.width, nowMs)
   if (hud.autoCombatBadge !== null) drawAutoCombatBadge(ctx, hud.font, hud.autoCombatBadge, barOffsetX, barOffsetY, hud.lang === 'ENG' ? 'ENG' : 'CHI')
   if (hud.showXpBar && hud.leftPanel === 'none' && hud.rightPanel === 'none' && !hud.worldPanels.escapeMenuOpen) {
-    drawXpBar(ctx, hud.font, internal.buildControlBarState(), profile.width, hud.lang === 'ENG' ? 'ENG' : 'CHI')
+    const xpState = internal.buildControlBarState()
+    hud.xpRate.record(xpState.xp, nowMs)
+    drawXpBar(ctx, hud.font, xpState, profile.width, hud.lang === 'ENG' ? 'ENG' : 'CHI', { perHour: hud.xpRate.perHour(nowMs), mouseX: hud.mouseX, mouseY: hud.mouseY })
   }
 
   // 3..6. Bottom Control Panel, Globes, Belt, and Skill Hotkeys (translated by barOffsetX, barOffsetY)
