@@ -1,4 +1,5 @@
 import type { WorldPanelsHud } from '../world-panels.ts'
+import { drawUpgradeCrosses, upgradeSuffix } from '../upgrade-marker.ts'
 import { D2FontRenderer, type D2ColorCode } from '../font.ts'
 import { getEffectiveItemReqClass, isUiItemUnidentified, type UiInventoryItem } from '../inventory.ts'
 import type { WeaponDamageInfo } from '../../../common/items/inventory-model.ts'
@@ -1099,6 +1100,7 @@ export function drawItemTooltipImpl(
   const { item } = hover
   const isEn = this.lang === 'ENG'
   const lines: { text: string; color: D2ColorCode; font: 'font16' }[] = []
+  const upgrade = this.upgradeVerdictFor(item)
 
   const rawItemCode = (item.code ?? '').trim().toLowerCase()
   const isQuestCode =
@@ -1162,12 +1164,12 @@ export function drawItemTooltipImpl(
         localizeStarterTooltipLine(item.nameZh, true)
       : (item.baseNameZh ? resolveHeaderZh(item.baseNameZh.split(' · ')[0]!) : undefined) ||
         resolveHeaderZh(item.nameZh)
-    lines.push({ text: maskedBaseHeader, color: titleColor, font: 'font16' })
+    lines.push({ text: maskedBaseHeader + upgradeSuffix(upgrade), color: titleColor, font: 'font16' })
   } else {
     const headerText = isEn
       ? (item.name && !/[\u4e00-\u9fff]/.test(item.name) ? item.name : localizeStarterTooltipLine(item.nameZh, true))
       : resolveHeaderZh(item.nameZh)
-    lines.push({ text: headerText, color: titleColor, font: 'font16' })
+    lines.push({ text: headerText + upgradeSuffix(upgrade), color: titleColor, font: 'font16' })
     if (item.runewordRunes) {
       lines.push({ text: item.runewordRunes, color: 'gold', font: 'font16' })
     }
@@ -1469,6 +1471,7 @@ export function drawItemTooltipImpl(
       align: 'center',
     })
   })
+  drawUpgradeCrosses(ctx, font, lines[0]!.text, upgrade, bx + Math.round(boxW / 2), by + padY + 12)
 }
 /**
  * Draw the authentic Diablo II v1.13c In-Game Escape Menu (`D2Client.dll` `gmenu.cpp` `0x6fb15230..0x6fb15555`

@@ -21,7 +21,7 @@ const createSetup = (enabled = true, level = 1) => {
   const mapper = new CommandMapper({ world, hudManager, sendCommand: (cmd) => sent.push(cmd) })
   mapper.autoGoldPickup = enabled
   const pickups = () => sent.filter((c) => c.type === 'ItemPickup').map((c) => (c as { itemId: number }).itemId)
-  return { world, mapper, hudManager, pickups }
+  return { world, mapper, hudManager, pickups, sent }
 }
 
 describe('auto gold pickup', () => {
@@ -34,12 +34,25 @@ describe('auto gold pickup', () => {
     expect(pickups()).toEqual([12, 11])
   })
 
-  it('ignores gold out of reach and items that are not gold', () => {
+  it('ignores gold beyond the radius and items that are not gold', () => {
     const { world, mapper, pickups } = createSetup()
-    dropOnGround(world, 21, 'gld', 5020, 5000)
+    dropOnGround(world, 21, 'gld', 5030, 5000)
     dropOnGround(world, 22, 'rin', 5001, 5000)
     mapper.pickUpNearbyGold(1000)
     expect(pickups()).toEqual([])
+  })
+
+  it('walks over to gold a few tiles away when idle, but not while the player is busy', () => {
+    const idle = createSetup()
+    dropOnGround(idle.world, 61, 'gld', 5012, 5000)
+    idle.mapper.pickUpNearbyGold(1000)
+    expect(idle.sent.find((c) => c.type === 'MoveToUnit')).toMatchObject({ target: { id: 61 } })
+    const busy = createSetup()
+    dropOnGround(busy.world, 62, 'gld', 5012, 5000)
+    busy.mapper.handlePointerDown(400, 300, 0, 900)
+    busy.sent.length = 0
+    busy.mapper.pickUpNearbyGold(1000)
+    expect(busy.sent.some((c) => c.type === 'MoveToUnit' || c.type === 'ItemPickup')).toBe(false)
   })
 
   it('retries a pile that is still on the ground only after a second', () => {

@@ -17,6 +17,7 @@ import { quickCastPlugin } from './quick-cast/index.ts'
 import { smoothTextPlugin } from './smooth-text/index.ts'
 import { smoothUpscalePlugin } from './smooth-upscale/index.ts'
 import { stashDepositAllPlugin } from './stash-deposit-all/index.ts'
+import { upgradeHintsPlugin } from './upgrade-hints/index.ts'
 
 export const BUILTIN_PLUGINS: readonly D2WebPlugin[] = [
   killStatsPlugin,
@@ -33,4 +34,5 @@ export const BUILTIN_PLUGINS: readonly D2WebPlugin[] = [
   experienceBarPlugin,
   autoGoldPickupPlugin,
   autoCombatPlugin,
+  upgradeHintsPlugin,
 ]

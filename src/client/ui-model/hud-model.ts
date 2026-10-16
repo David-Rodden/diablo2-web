@@ -439,6 +439,7 @@ export class HudModel implements HudCommandSink {
   private bindHudCallbacks(hud: HudManager): void {
     this.boundHudInstance = hud
     hud.commandSink = this
+    hud.resolveGroundItem = (unitId) => this.world.containers.ground.get(unitId)
     hud.questAlert = this.world.questLog
     if (this.uiSound) {
       hud.onPlayUiSound = (soundId) => {

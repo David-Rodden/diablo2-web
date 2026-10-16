@@ -310,6 +310,7 @@ export interface PluginContext {
   readonly xpBar: PluginTogglePort
   readonly autoGoldPickup: PluginTogglePort
   readonly smoothUpscale: PluginTogglePort
+  readonly upgradeHints: PluginTogglePort
   readonly autoCombat: PluginAutoCombatPort
   readonly lang: {
     get(): GameLang

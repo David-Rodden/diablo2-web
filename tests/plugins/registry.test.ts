@@ -612,6 +612,10 @@ describe('BUILTIN_PLUGINS Registry & Built-In Plugin Lifecycles', () => {
         isEnabled: () => false,
         setEnabled() {},
       },
+      upgradeHints: {
+        isEnabled: () => false,
+        setEnabled() {},
+      },
       autoCombat: {
         getKey: () => null,
         setKey() {},
