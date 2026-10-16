@@ -309,6 +309,7 @@ export interface PluginContext {
   readonly stashDepositAll: PluginTogglePort
   readonly xpBar: PluginTogglePort
   readonly autoGoldPickup: PluginTogglePort
+  readonly smoothUpscale: PluginTogglePort
   readonly autoCombat: PluginAutoCombatPort
   readonly lang: {
     get(): GameLang

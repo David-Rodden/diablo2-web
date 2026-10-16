@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { crispPixelScale, crispRenderDpr } from '../../src/client/view/crisp-scale.ts'
+import { crispPixelScale, crispRenderDpr, syncPhysicalBackingStore } from '../../src/client/view/crisp-scale.ts'
 
 describe('crisp scaling', () => {
   it('rounds fractional display scales up to a whole pixel multiple', () => {
@@ -28,5 +28,13 @@ describe('crisp scaling', () => {
       expect(Math.abs(physical - Math.round(physical))).toBeLessThan(1e-9)
       expect(physical).toBeGreaterThanOrEqual(Math.min(4, uiScale * dpr) - 0.02)
     }
+  })
+
+  it('sizes a canvas to its exact on-screen pixels for the smooth upscaling pass', () => {
+    const canvas = { clientWidth: 1047.4, clientHeight: 785, width: 300, height: 150 } as HTMLCanvasElement
+    syncPhysicalBackingStore(canvas)
+    expect([canvas.width, canvas.height]).toEqual([1047, 785])
+    syncPhysicalBackingStore(Object.assign(canvas, { clientWidth: 0 }))
+    expect(canvas.width).toBe(1)
   })
 })

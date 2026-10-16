@@ -16,6 +16,7 @@ import { killStatsPlugin } from './kill-stats/index.ts'
 import { nextGamePlugin } from './next-game/index.ts'
 import { quickCastPlugin } from './quick-cast/index.ts'
 import { smoothTextPlugin } from './smooth-text/index.ts'
+import { smoothUpscalePlugin } from './smooth-upscale/index.ts'
 import { stashDepositAllPlugin } from './stash-deposit-all/index.ts'
 
 export const BUILTIN_PLUGINS: readonly D2WebPlugin[] = [
@@ -29,6 +30,7 @@ export const BUILTIN_PLUGINS: readonly D2WebPlugin[] = [
   nextGamePlugin,
   dragInteractPlugin,
   smoothTextPlugin,
+  smoothUpscalePlugin,
   stashDepositAllPlugin,
   experienceBarPlugin,
   autoGoldPickupPlugin,

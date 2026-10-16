@@ -92,7 +92,8 @@ import {
 import { Toolbar } from './toolbar/toolbar.ts'
 import { HudModel } from './ui-model/hud-model.ts'
 import type { SceneFrameSnapshot } from './view/scene-source.ts'
-import { syncCrispBackingStore } from './view/crisp-scale.ts'
+import { syncCrispBackingStore, syncPhysicalBackingStore } from './view/crisp-scale.ts'
+import { smoothUpscaleSetting } from './render/fsr-upscale.ts'
 import { smoothTextSetting } from './ui/vector-glyph-atlas.ts'
 import {
   applyViewportProfileToDom,
@@ -585,6 +586,10 @@ export async function startPlayApp(options?: {
     autoGoldPickup: {
       isEnabled: () => session.commandMapper.autoGoldPickup,
       setEnabled: (enabled) => void (session.commandMapper.autoGoldPickup = enabled),
+    },
+    smoothUpscale: {
+      isEnabled: () => smoothUpscaleSetting.enabled,
+      setEnabled: (enabled) => void (smoothUpscaleSetting.enabled = enabled),
     },
     autoCombat: {
       getKey: () => session.commandMapper.autoCombatKey,
@@ -1658,7 +1663,10 @@ export async function startPlayApp(options?: {
     const currentSettings = settingsStore.get()
     const profile = getViewportProfile(currentSettings.viewport)
 
-    renderer.pixelScale = syncCrispBackingStore(viewCanvas, profile.width, profile.height)
+    const smoothUpscale = smoothUpscaleSetting.enabled
+    if (smoothUpscale) syncPhysicalBackingStore(viewCanvas)
+    renderer.pixelScale = smoothUpscale ? 1 : syncCrispBackingStore(viewCanvas, profile.width, profile.height)
+    renderer.sceneSize = smoothUpscale ? profile : null
 
     lastRenderSnapshot = renderSceneSourceFrame({
       source: session.sceneSource,
@@ -1680,6 +1688,7 @@ export async function startPlayApp(options?: {
       weather: weatherPass,
       nowMs,
     })
+    renderer.present()
     // 1.13c FPS counter 0x6fb0a9a0 (called at 0x6faf4392): after the draw and the UI.
     // The weather driver of this frame read the value of the previous frames.
     fpsCounter.frame(Math.floor(performance.now()))
