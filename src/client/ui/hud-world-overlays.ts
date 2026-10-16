@@ -26,6 +26,7 @@ import { requireTbl, type TblLang } from '../i18n/lang.ts'
 import { LineGlide } from './line-glide.ts'
 import { drawXpBar } from './xp-bar.ts'
 import { drawAutoCombatBadge } from './auto-combat-badge.ts'
+import { drawPotionShortageBadge } from './potion-shortage-badge.ts'
 import { drawUpgradeCrosses } from './upgrade-marker.ts'
 import type { GroundItemEnhancementsConfig } from '../settings/client-settings.ts'
 import {
@@ -137,6 +138,7 @@ export function hudRepaintUnchanged(hud: HudManager, nowMs: number): boolean {
     hud.mouseX,
     hud.mouseY,
     hud.autoCombatBadge?.on ?? -1,
+    hud.potionShortage ?? '',
     // On the dedicated cursor layer the animation cell no longer touches the
     // HUD canvas, so it stops participating in the skip signature there.
     ...(internal.cursorCanvas !== null ? [] : [cursorInfo.frame?.x ?? -1, cursorInfo.frame?.y ?? -1]),
@@ -697,6 +699,7 @@ export function renderHudFrame(
   // 2b. Top-Left Real-Time Chat & Event Message Stream Overlay (`D2Client.dll` `0x6fb2b730` `MSG_DrawChatOverlay`)
   hud.renderChatOverlay(ctx, profile.width, nowMs)
   if (hud.autoCombatBadge !== null) drawAutoCombatBadge(ctx, hud.font, hud.autoCombatBadge, barOffsetX, barOffsetY, hud.lang === 'ENG' ? 'ENG' : 'CHI')
+  if (hud.potionShortage !== null) drawPotionShortageBadge(ctx, hud.font, hud.potionShortage, barOffsetX, barOffsetY, hud.lang === 'ENG' ? 'ENG' : 'CHI')
   if (hud.showXpBar && hud.leftPanel === 'none' && hud.rightPanel === 'none' && !hud.worldPanels.escapeMenuOpen) {
     const xpState = internal.buildControlBarState()
     hud.xpRate.record(xpState.xp, nowMs)

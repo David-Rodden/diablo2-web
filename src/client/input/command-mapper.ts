@@ -77,6 +77,7 @@ import {
 import { MONSTATS2FLAG_REVIVE, getMonsterPathRecord } from '../../common/path/units.ts'
 import { SKILL_INPUT_FLAGS_113C } from './generated/input-tables-113c.ts'
 import { isMetalItemCode113c } from '../../common/items/metal-items-113c.ts'
+import { AutoPotionPlanner, bottomBeltPotions, potionShortage, type AutoPotionThresholds } from './auto-potion.ts'
 import { PET_TYPE_UNSUMMON_IDX_113C } from '../../common/units/pet-type-table.ts'
 
 export const CORPSE_TARGET_SKILL_IDS = new Set<number>([
@@ -341,6 +342,9 @@ export class CommandMapper {
   private lastAutoCombatHit: { readonly id: number; readonly life: number } | null = null
   private swingFinishedAtMs: number | null = null
 
+  autoPotionThresholds: AutoPotionThresholds | null = null
+  private readonly autoPotion = new AutoPotionPlanner()
+
   /** Default F1..F8 skill hotkey bindings (`key.toUpperCase()` -> binding). */
   private readonly skillHotkeys = new Map<string, SkillHotkeyBinding>()
 
@@ -442,8 +446,30 @@ export class CommandMapper {
   }
 
   tickAssists(nowMs: number): void {
+    this.drinkPotionsIfLow(nowMs)
     this.pickUpNearbyGold(nowMs)
     this.runAutoCombat(nowMs)
+  }
+
+  drinkPotionsIfLow(nowMs: number): void {
+    const thresholds = this.autoPotionThresholds
+    const active = thresholds !== null && !this.world.isDead && !this.isTownArea()
+    const belt = active ? bottomBeltPotions(this.world.containers.belt.values()) : []
+    const { hp = 0, maxHp = 0, mana = 0, maxMana = 0 } = this.hudManager
+    const vitals = { life: hp, maxLife: maxHp, mana, maxMana, mercLifePct: active ? this.mercLifePct() : null }
+    this.hudManager.potionShortage = active ? potionShortage(belt, thresholds, vitals) : null
+    if (!active || this.hudModel === null) return
+    const drink = this.autoPotion.plan(belt, vitals, thresholds, nowMs)
+    if (drink === null) return
+    const toMerc = drink.kind === 'merc'
+    const sent = this.hudManager.commandSink === this.hudModel ? this.hudManager.drinkBeltSlot(drink.column, toMerc) : this.hudModel.useBeltSlot(drink.column, toMerc)
+    if (sent) this.autoPotion.record(drink, nowMs)
+  }
+
+  private mercLifePct(): number | null {
+    const merc = this.world.merc
+    const unit = merc && !merc.isDead && merc.mercId > 0 ? this.world.getUnit('monster', merc.mercId) : undefined
+    return unit === undefined ? null : (unit.lifePct * 100) / 128
   }
 
   runAutoCombat(nowMs: number): void {

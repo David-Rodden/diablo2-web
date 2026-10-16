@@ -19,6 +19,7 @@
  * - `hud-world-overlays.ts`: Main HUD frame renderer, ground item beams, speech bubbles, chat & cursor layer
  */
 
+import type { PotionShortageKind } from './potion-shortage-badge.ts'
 import { D2FontRenderer } from './font.ts'
 import type { GroundItemLabelBox } from '../../common/items/ground-items.ts'
 import { GlobesHud } from './globes.ts'
@@ -475,6 +476,7 @@ export class HudManager {
   private upgradeVerdicts = new Map<UiInventoryItem, UpgradeVerdict | null>()
   private upgradeMarkersKey = ''
   autoCombatBadge: { readonly on: boolean; readonly key: string } | null = null
+  potionShortage: PotionShortageKind | null = null
   currentFps = 0
   pingMs = 0
   trade: any = null

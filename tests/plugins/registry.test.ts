@@ -620,6 +620,10 @@ describe('BUILTIN_PLUGINS Registry & Built-In Plugin Lifecycles', () => {
         getKey: () => null,
         setKey() {},
       },
+      autoPotion: {
+        getThresholds: () => null,
+        setThresholds() {},
+      },
     })
     await host.start()
 

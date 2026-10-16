@@ -10,6 +10,8 @@ import { stashDepositAllPlugin } from '../../plugins/stash-deposit-all/index.ts'
 import { experienceBarPlugin } from '../../plugins/experience-bar/index.ts'
 import { autoGoldPickupPlugin } from '../../plugins/auto-gold-pickup/index.ts'
 import { autoCombatPlugin } from '../../plugins/auto-combat/index.ts'
+import { autoPotionPlugin } from '../../plugins/auto-potion/index.ts'
+import type { AutoPotionThresholds } from '../../src/client/plugin-host/api.ts'
 import { upgradeHintsPlugin } from '../../plugins/upgrade-hints/index.ts'
 
 const memoryStorage = () => {
@@ -97,3 +99,36 @@ describe('auto-combat plugin', () => {
   })
 })
 
+
+describe('auto-potion plugin', () => {
+  it('applies the default thresholds, follows setting changes and switches off on teardown', async () => {
+    let thresholds: AutoPotionThresholds | null = null
+    const host = new PluginHost({
+      plugins: [autoPotionPlugin],
+      configStore: new PluginConfigStore([autoPotionPlugin], { storage: memoryStorage() }),
+      session: { phase: 'lobby', world: {}, loginHost: null, getSnapshot: () => ({}), onServerEvent: () => () => {}, onStateChange: () => () => {} } as unknown as PluginSessionView,
+      toolbar: { setPluginsButtonState() {}, addContribution: () => () => {} },
+      autoPotion: { getThresholds: () => thresholds, setThresholds: (t) => void (thresholds = t) },
+      autoStart: false,
+    })
+    await host.start()
+    expect([thresholds, host.getStatus('auto-potion').level]).toEqual([{ life: 50, rejuv: 25, mana: 20, merc: 40 }, 'ok'])
+    host.setSetting('auto-potion', 'mana', '0')
+    expect(thresholds).toMatchObject({ life: 50, mana: 0 })
+    await host.destroy()
+    expect(thresholds).toBeNull()
+  })
+
+  it('reports an error when the port is not wired', async () => {
+    const host = new PluginHost({
+      plugins: [autoPotionPlugin],
+      configStore: new PluginConfigStore([autoPotionPlugin], { storage: memoryStorage() }),
+      session: { phase: 'lobby', world: {}, loginHost: null, getSnapshot: () => ({}), onServerEvent: () => () => {}, onStateChange: () => () => {} } as unknown as PluginSessionView,
+      toolbar: { setPluginsButtonState() {}, addContribution: () => () => {} },
+      autoStart: false,
+    })
+    await host.start()
+    expect(host.getStatus('auto-potion').level).toBe('error')
+    await host.destroy()
+  })
+})
