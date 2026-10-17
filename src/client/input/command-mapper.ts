@@ -471,6 +471,7 @@ export class CommandMapper {
       mercLifePct: active ? this.mercLifePct() : null,
       healingActive: self.states.has(STATE_HEALTHPOT),
       manaActive: self.states.has(STATE_MANAPOT),
+      charClass: self.charClass,
     }
     this.hudManager.potionShortage = active ? potionShortage(potions, thresholds, vitals) : null
     if (!active || this.hudModel === null) return

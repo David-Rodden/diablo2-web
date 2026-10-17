@@ -20,6 +20,15 @@ describe('auto-potion planner', () => {
     expect(new AutoPotionPlanner().plan(belt('hp5', 'hp2', 'hp3', 'hp1'), vitals({ life: 85, maxLife: 180 }), THRESHOLDS, 0)).toEqual({ column: 2, code: 'hp3', kind: 'life' })
   })
 
+  it('sizes potions with the class bonus: a barbarian heals double, a sorceress gets double mana', () => {
+    const gap = vitals({ life: 80, maxLife: 200, mana: 10, maxMana: 200 })
+    expect(new AutoPotionPlanner().plan(belt('hp3', 'hp4'), { ...gap, charClass: 1 }, THRESHOLDS, 0)).toMatchObject({ code: 'hp4' })
+    expect(new AutoPotionPlanner().plan(belt('hp3', 'hp4'), { ...gap, charClass: 4 }, THRESHOLDS, 0)).toMatchObject({ code: 'hp3' })
+    const manaGap = vitals({ mana: 20, maxMana: 150 })
+    expect(new AutoPotionPlanner().plan(belt('mp3', 'mp4'), { ...manaGap, charClass: 4 }, THRESHOLDS, 0)).toMatchObject({ code: 'mp4' })
+    expect(new AutoPotionPlanner().plan(belt('mp3', 'mp4'), { ...manaGap, charClass: 1 }, THRESHOLDS, 0)).toMatchObject({ code: 'mp3' })
+  })
+
   it('falls back to the largest healing potion when none covers the gap', () => {
     expect(new AutoPotionPlanner().plan(belt('hp1', 'hp2'), vitals({ life: 400, maxLife: 1000 }), THRESHOLDS, 0)).toEqual({ column: 1, code: 'hp2', kind: 'life' })
   })
