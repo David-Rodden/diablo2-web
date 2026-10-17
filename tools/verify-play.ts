@@ -4,7 +4,7 @@
  *
  * Verifies against live `www.laiseek.xyz` (via Vite `/d2net` WebSocket proxy) with WebGL2 SwiftShader:
  *   Gate 1. Clean boot of `play.html` (`window.__d2Play.ready === true`), DOM mounts, and pre-game `main_menu` canvas pixels
- *   Gate 2. Live Battle.net Account Login (`d2webbot1` / `pass123`), Character Selection (`WebBotOne`),
+ *   Gate 2. Live Battle.net Account Login (`d2webbot1` / `pass123`), Character Selection (`VerifyPlayBot`),
  *           Lobby (`JOIN` game list query, Chat Gem toggle, live lobby chat)
  *   Gate 3. Live Game Create & Join into D2GS (`in_game`), DRLG `LevelView` Act 1 Rogue Encampment,
  *           and WebGL2 `SpriteRenderer` + `TileAtlasGpuCache` + DCC/DC6 non-black pixel verification
@@ -137,6 +137,8 @@ class CdpSession {
     }
   }
 }
+
+const BOT_CHAR_NAME = 'VerifyPlayBot'
 
 const CAPTURE_FIXTURE_FILES = [
   '01-bncs-mcp-lobby.d2cap',
@@ -424,19 +426,19 @@ async function main(): Promise<void> {
         }
       }
 
-      // If character WebBotOne is not yet in roster, create it on the realm
-      let idx = st.roster.findIndex((c) => c.name.toLowerCase() === 'webbotone');
+      // If the bot character is not yet in roster, create it on the realm
+      let idx = st.roster.findIndex((c) => c.name.toLowerCase() === ${JSON.stringify(BOT_CHAR_NAME.toLowerCase())});
       if (idx < 0) {
         st.stage = 'char_create';
         st.selectedClass = 'so';
-        st.charName = 'WebBotOne';
+        st.charName = ${JSON.stringify(BOT_CHAR_NAME)};
         st.isExpansion = true;
         st.isHardcore = false;
         st.isLadder = true;
         if (fr.asyncHandlers?.onCreateCharacter) {
           await fr.asyncHandlers.onCreateCharacter(st);
         }
-        idx = st.roster.findIndex((c) => c.name.toLowerCase() === 'webbotone');
+        idx = st.roster.findIndex((c) => c.name.toLowerCase() === ${JSON.stringify(BOT_CHAR_NAME.toLowerCase())});
       }
       st.selectedSlotIndex = idx >= 0 ? idx : 0;
       const stageAfterAuth = st.stage;
@@ -459,7 +461,7 @@ async function main(): Promise<void> {
 
       // Send live lobby chat message
       st.activeInput = 'chatInput';
-      st.chatInput = 'Hello Lobby from WebBotOne';
+      st.chatInput = ${JSON.stringify(`Hello Lobby from ${BOT_CHAR_NAME}`)};
       fr.handleKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }));
       await new Promise((r) => setTimeout(r, 150));
 
@@ -485,7 +487,7 @@ async function main(): Promise<void> {
       gate2.lobbyStage !== 'bnet_lobby' ||
       gate2.sessionPhase !== 'lobby' ||
       gate2.rosterNames.length === 0 ||
-      !gate2.selectedChar ||
+      gate2.selectedChar?.toLowerCase() !== BOT_CHAR_NAME.toLowerCase() ||
       !gate2.gemActivated ||
       gate2.chatMessagesCount < 2
     ) {
