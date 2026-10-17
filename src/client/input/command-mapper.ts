@@ -486,7 +486,7 @@ export class CommandMapper {
   }
 
   private isAutoCombatTarget(unit: ClientUnit): boolean {
-    if (unit.unitType !== 'monster' || this.isTownOrInteractiveNpc(unit) || this.isFriendlySummonOrPet(unit) || this.isMonsterCorpse(unit)) return false
+    if (unit.unitType !== 'monster' || this.isTownOrInteractiveNpc(unit) || this.isFriendlySummonOrPet(unit) || this.isMonsterDead(unit)) return false
     const shown = this.shownPosition(unit)
     const screen = this.camera.subtileToScreen(shown.x, shown.y)
     const { width, height } = this.camera.viewportProfile
@@ -513,8 +513,13 @@ export class CommandMapper {
     this.hudModel?.setHoveredMonster(id)
   }
 
+  private isEngagedMonsterAlive(): boolean {
+    const unit = this.engagedMonsterId === null ? undefined : this.world.getUnit('monster', this.engagedMonsterId)
+    return unit !== undefined && !this.isMonsterDead(unit)
+  }
+
   private showHoveredMonster(id: number | null): void {
-    const engaged = this.engagedMonsterId !== null && (this.leftMouseDown || this.autoCombatOn) && (this.world.getUnit('monster', this.engagedMonsterId)?.lifePct ?? 0) > 0
+    const engaged = this.engagedMonsterId !== null && (this.leftMouseDown || this.autoCombatOn) && this.isEngagedMonsterAlive()
     if (!engaged) this.hudModel?.setHoveredMonster(id)
   }
 
@@ -623,12 +628,15 @@ export class CommandMapper {
     ) {
       return false
     }
-    return (
-      Boolean((unit as { dead?: boolean }).dead) ||
-      unit.mode === 0 ||
-      unit.mode === 12 ||
-      unit.lifePct <= 0
-    )
+    return this.isMonsterDead(unit, world)
+  }
+
+  isMonsterDead(unit: ClientUnit, world: ClientWorld = this.world): boolean {
+    return unit.unitType === 'monster' && !this.isTownOrInteractiveNpc(unit, world) && (unit.dead || unit.mode === 0 || unit.mode === 12 || unit.lifePct <= 0)
+  }
+
+  private isDeadOutOfReach(unit: ClientUnit, canTargetCorpse: boolean): boolean {
+    return this.isMonsterDead(unit) && !(canTargetCorpse && this.isMonsterCorpse(unit))
   }
 
   /**
@@ -697,6 +705,7 @@ export class CommandMapper {
         }
         return true
       }
+      if (this.isMonsterDead(unit, world)) return false
       // Live monster: 1.13c TargetCorpse=1 skills (70/74/80/83/95/131/142/150) cannot target live monsters.
       if (TARGET_CORPSE_SKILL_IDS_113C.has(skillId)) return false
       const monKind = getMonsterKindByHcIdx(unit.classId, world.difficulty)
@@ -913,7 +922,7 @@ export class CommandMapper {
       case 'player':
         return unit.dead ? 1 : 0
       case 'monster':
-        return this.isMonsterCorpse(unit) ? -8 : 0
+        return this.isMonsterDead(unit) ? -8 : 0
       case 'tile':
         return 0
       case 'item':
@@ -990,7 +999,7 @@ export class CommandMapper {
         if (this.isFriendlySummonOrPet(unit) && !canTargetAllyOrPet) {
           return false
         }
-        if (this.isMonsterCorpse(unit) && !canTargetCorpse) {
+        if (this.isDeadOutOfReach(unit, canTargetCorpse)) {
           return false
         }
       }
@@ -1171,7 +1180,7 @@ export class CommandMapper {
           if (this.isFriendlySummonOrPet(unit) && !canTargetAllyOrPet) {
             continue
           }
-          if (this.isMonsterCorpse(unit) && !canTargetCorpse) {
+          if (this.isDeadOutOfReach(unit, canTargetCorpse)) {
             continue
           }
         }
@@ -1375,7 +1384,7 @@ export class CommandMapper {
           this.lockedTargetUnit = null
           return null
         }
-      } else if (this.isMonsterCorpse(liveUnit) && !CORPSE_TARGET_SKILL_IDS.has(skillId)) {
+      } else if (this.isDeadOutOfReach(liveUnit, CORPSE_TARGET_SKILL_IDS.has(skillId))) {
         this.lockedTargetUnit = null
         return null
       }
