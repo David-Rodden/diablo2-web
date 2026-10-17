@@ -12,10 +12,7 @@ export interface AutoPotionThresholds {
   readonly merc: number
 }
 
-export interface BeltPotion {
-  readonly column: number
-  readonly code: string
-}
+export type Potion = { readonly code: string } & ({ readonly column: number } | { readonly itemId: number })
 
 export interface PotionVitals {
   readonly life: number
@@ -27,21 +24,21 @@ export interface PotionVitals {
 
 export type PotionKind = 'life' | 'mana' | 'merc'
 
-export interface PotionDrink {
-  readonly column: number
-  readonly code: string
-  readonly kind: PotionKind
-}
+export type PotionDrink = Potion & { readonly kind: PotionKind }
 
 export type PotionShortage = 'life' | 'mana' | null
 
 const spec = (code: string) => CANONICAL_POTION_SPECS[code]
-const isRejuv = (p: BeltPotion) => REJUV_CODES.includes(p.code)
-const isHealing = (p: BeltPotion) => /^hp[1-5]$/.test(p.code)
-const isMana = (p: BeltPotion) => /^mp[1-5]$/.test(p.code)
+const isRejuv = (p: Potion) => REJUV_CODES.includes(p.code)
+const isHealing = (p: Potion) => /^hp[1-5]$/.test(p.code)
+const isMana = (p: Potion) => /^mp[1-5]$/.test(p.code)
+const inBelt = (p: Potion) => 'column' in p
 const percent = (value: number, max: number) => (max > 0 ? (value * 100) / max : 100)
 
-export const bottomBeltPotions = (items: Iterable<{ readonly code: string; readonly gridX?: number; readonly x?: number }>): BeltPotion[] =>
+export const inventoryPotions = (items: Iterable<{ readonly id: number; readonly code: string }>): Potion[] =>
+  [...items].map((item) => ({ itemId: item.id, code: item.code.trim().toLowerCase() })).filter((p) => isHealing(p) || isMana(p) || isRejuv(p))
+
+export const bottomBeltPotions = (items: Iterable<{ readonly code: string; readonly gridX?: number; readonly x?: number }>): Potion[] =>
   [...items]
     .map((item) => ({ slot: item.gridX ?? item.x ?? 0, code: item.code.trim().toLowerCase() }))
     .filter(({ slot }) => slot >= 0 && slot < BELT_COLUMNS * BELT_COLUMNS)
@@ -49,34 +46,38 @@ export const bottomBeltPotions = (items: Iterable<{ readonly code: string; reado
     .filter((item, index, sorted) => sorted.findIndex((other) => other.slot % BELT_COLUMNS === item.slot % BELT_COLUMNS) === index)
     .map(({ slot, code }) => ({ column: slot % BELT_COLUMNS, code }))
 
-const smallestCovering = (potions: readonly BeltPotion[], amountOf: (p: BeltPotion) => number, deficit: number): BeltPotion | undefined => {
+const smallestCovering = (potions: readonly Potion[], amountOf: (p: Potion) => number, deficit: number): Potion | undefined => {
   const sorted = [...potions].sort((a, b) => amountOf(a) - amountOf(b))
   return sorted.find((p) => amountOf(p) >= deficit) ?? sorted.at(-1)
 }
 
-export const potionShortage = (belt: readonly BeltPotion[], thresholds: AutoPotionThresholds, vitals: PotionVitals): PotionShortage =>
-  thresholds.life > 0 && !belt.some((p) => isHealing(p) || isRejuv(p)) ? 'life' : percent(vitals.mana, vitals.maxMana) < thresholds.mana && !belt.some(isMana) ? 'mana' : null
+export const potionShortage = (potions: readonly Potion[], thresholds: AutoPotionThresholds, vitals: PotionVitals): PotionShortage =>
+  thresholds.life > 0 && !potions.some((p) => isHealing(p) || isRejuv(p)) ? 'life' : percent(vitals.mana, vitals.maxMana) < thresholds.mana && !potions.some(isMana) ? 'mana' : null
 
 export class AutoPotionPlanner {
   private readonly effectUntil: Record<PotionKind, number> = { life: Number.NEGATIVE_INFINITY, mana: Number.NEGATIVE_INFINITY, merc: Number.NEGATIVE_INFINITY }
   private lastDrinkMs = Number.NEGATIVE_INFINITY
 
-  plan(belt: readonly BeltPotion[], vitals: PotionVitals, thresholds: AutoPotionThresholds, nowMs: number): PotionDrink | null {
+  plan(potions: readonly Potion[], vitals: PotionVitals, thresholds: AutoPotionThresholds, nowMs: number): PotionDrink | null {
     if (nowMs - this.lastDrinkMs < DRINK_GAP_MS || vitals.maxLife <= 0 || vitals.life <= 0) return null
     const lifePct = percent(vitals.life, vitals.maxLife)
     const manaPct = percent(vitals.mana, vitals.maxMana)
     const free = (kind: PotionKind) => nowMs >= this.effectUntil[kind]
-    const drink = (potion: BeltPotion | undefined, kind: PotionKind): PotionDrink | null => (potion ? { column: potion.column, code: potion.code, kind } : null)
-    const rejuvFor = (pct: number) => smallestCovering(belt.filter(isRejuv), (p) => spec(p.code)?.hpAmount ?? 0, thresholds.life - pct)
-    const healing = (deficit: number) => smallestCovering(belt.filter(isHealing), (p) => spec(p.code)?.hpAmount ?? 0, deficit)
-    const mana = (deficit: number) => smallestCovering(belt.filter(isMana), (p) => spec(p.code)?.manaAmount ?? 0, deficit)
+    const drink = (potion: Potion | undefined, kind: PotionKind): PotionDrink | null => (potion ? { ...potion, kind } : null)
+    const pick = (stock: readonly Potion[], matches: (p: Potion) => boolean, amountOf: (p: Potion) => number, deficit: number) =>
+      smallestCovering(stock.filter((p) => matches(p) && !inBelt(p)), amountOf, deficit) ?? smallestCovering(stock.filter((p) => matches(p) && inBelt(p)), amountOf, deficit)
+    const hpOf = (p: Potion) => spec(p.code)?.hpAmount ?? 0
+    const rejuvFor = (pct: number, stock = potions) => pick(stock, isRejuv, hpOf, thresholds.life - pct)
+    const healing = (deficit: number, stock = potions) => pick(stock, isHealing, hpOf, deficit)
+    const mana = (deficit: number) => pick(potions, isMana, (p) => spec(p.code)?.manaAmount ?? 0, deficit)
+    const belt = potions.filter(inBelt)
     const critical = lifePct < thresholds.rejuv
     const merc = vitals.mercLifePct
     return (
       (critical ? drink(rejuvFor(lifePct) ?? healing(vitals.maxLife - vitals.life), 'life') : null) ??
       (lifePct < thresholds.life && free('life') ? drink(healing(vitals.maxLife - vitals.life) ?? rejuvFor(lifePct), 'life') : null) ??
       (manaPct < thresholds.mana && vitals.maxMana > 0 && free('mana') ? drink(mana(vitals.maxMana - vitals.mana), 'mana') : null) ??
-      (merc !== null && merc > 0 && merc < thresholds.merc && free('merc') ? drink(healing(Number.POSITIVE_INFINITY) ?? (merc < thresholds.rejuv ? rejuvFor(merc) : undefined), 'merc') : null)
+      (merc !== null && merc > 0 && merc < thresholds.merc && free('merc') ? drink(healing(Number.POSITIVE_INFINITY, belt) ?? (merc < thresholds.rejuv ? rejuvFor(merc, belt) : undefined), 'merc') : null)
     )
   }
 

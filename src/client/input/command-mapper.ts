@@ -77,7 +77,7 @@ import {
 import { MONSTATS2FLAG_REVIVE, getMonsterPathRecord } from '../../common/path/units.ts'
 import { SKILL_INPUT_FLAGS_113C } from './generated/input-tables-113c.ts'
 import { isMetalItemCode113c } from '../../common/items/metal-items-113c.ts'
-import { AutoPotionPlanner, bottomBeltPotions, potionShortage, type AutoPotionThresholds } from './auto-potion.ts'
+import { AutoPotionPlanner, bottomBeltPotions, inventoryPotions, potionShortage, type PotionDrink, type AutoPotionThresholds } from './auto-potion.ts'
 import { PET_TYPE_UNSUMMON_IDX_113C } from '../../common/units/pet-type-table.ts'
 
 export const CORPSE_TARGET_SKILL_IDS = new Set<number>([
@@ -454,16 +454,25 @@ export class CommandMapper {
   drinkPotionsIfLow(nowMs: number): void {
     const thresholds = this.autoPotionThresholds
     const active = thresholds !== null && !this.world.isDead && !this.isTownArea()
-    const belt = active ? bottomBeltPotions(this.world.containers.belt.values()) : []
+    const { inventory, belt } = this.world.containers
+    const potions = active ? [...inventoryPotions(inventory.values()), ...bottomBeltPotions(belt.values())] : []
     const { hp = 0, maxHp = 0, mana = 0, maxMana = 0 } = this.hudManager
     const vitals = { life: hp, maxLife: maxHp, mana, maxMana, mercLifePct: active ? this.mercLifePct() : null }
-    this.hudManager.potionShortage = active ? potionShortage(belt, thresholds, vitals) : null
+    this.hudManager.potionShortage = active ? potionShortage(potions, thresholds, vitals) : null
     if (!active || this.hudModel === null) return
-    const drink = this.autoPotion.plan(belt, vitals, thresholds, nowMs)
-    if (drink === null) return
+    const drink = this.autoPotion.plan(potions, vitals, thresholds, nowMs)
+    if (drink !== null && this.drinkPotion(drink, this.hudModel)) this.autoPotion.record(drink, nowMs)
+  }
+
+  private drinkPotion(drink: PotionDrink, hudModel: HudModel): boolean {
+    const withSound = this.hudManager.commandSink === hudModel
+    if ('itemId' in drink) {
+      if (withSound) return this.hudManager.drinkInventoryPotion(drink.itemId, drink.code)
+      hudModel.useItem(drink.itemId)
+      return true
+    }
     const toMerc = drink.kind === 'merc'
-    const sent = this.hudManager.commandSink === this.hudModel ? this.hudManager.drinkBeltSlot(drink.column, toMerc) : this.hudModel.useBeltSlot(drink.column, toMerc)
-    if (sent) this.autoPotion.record(drink, nowMs)
+    return withSound ? this.hudManager.drinkBeltSlot(drink.column, toMerc) : hudModel.useBeltSlot(drink.column, toMerc)
   }
 
   private mercLifePct(): number | null {

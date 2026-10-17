@@ -1671,6 +1671,15 @@ export class HudManager {
     return drinkHudBeltSlot(this, col, shiftToMerc)
   }
 
+  drinkInventoryPotion(itemId: number, code: string): boolean {
+    const sink = this._commandSink
+    if (!sink) return false
+    this.playItemUseUiSound(code)
+    if (sink.onUseInventoryItem) sink.onUseInventoryItem(itemId)
+    else sink.useItem(itemId)
+    return true
+  }
+
   private triggerResurrect(): void {
     triggerHudResurrect(this)
   }
