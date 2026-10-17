@@ -25,15 +25,21 @@ const memoryStorage = () => {
   return { getItem: (k: string) => map.get(k) ?? null, setItem: (k: string, v: string) => void map.set(k, v), removeItem: (k: string) => void map.delete(k) }
 }
 
-const createHost = (plugin: D2WebPlugin, ports: Partial<PluginHostOptions> = {}) =>
+const createHost = (plugin: D2WebPlugin, ports: Partial<PluginHostOptions> = {}, storage = memoryStorage()) =>
   new PluginHost({
     plugins: [plugin],
-    configStore: new PluginConfigStore([plugin], { storage: memoryStorage() }),
+    configStore: new PluginConfigStore([plugin], { storage }),
     session: { phase: 'lobby', world: {}, loginHost: null, getSnapshot: () => ({}), onServerEvent: () => () => {}, onStateChange: () => () => {} } as unknown as PluginSessionView,
     toolbar: { setPluginsButtonState() {}, addContribution: () => () => {} },
     autoStart: false,
     ...ports,
   })
+
+const startEnabled = async (host: PluginHost, pluginId: string) => {
+  await host.start()
+  await host.setEnabled(pluginId, true)
+  return host
+}
 
 const portStub = () => {
   const stub = { enabled: false, isEnabled: () => stub.enabled, setEnabled: (v: boolean) => void (stub.enabled = v) }
@@ -41,28 +47,27 @@ const portStub = () => {
 }
 
 describe.each([
-  { plugin: dragInteractPlugin, portName: 'dragInteract' },
-  { plugin: smoothTextPlugin, portName: 'smoothText' },
-  { plugin: smoothUpscalePlugin, portName: 'smoothUpscale' },
-  { plugin: stashDepositAllPlugin, portName: 'stashDepositAll' },
-  { plugin: experienceBarPlugin, portName: 'xpBar' },
-  { plugin: autoGoldPickupPlugin, portName: 'autoGoldPickup' },
-  { plugin: upgradeHintsPlugin, portName: 'upgradeHints' },
-])('$plugin.id toggle plugin', ({ plugin, portName }) => {
+  { plugin: dragInteractPlugin, portName: 'dragInteract', defaultOn: true },
+  { plugin: smoothTextPlugin, portName: 'smoothText', defaultOn: true },
+  { plugin: smoothUpscalePlugin, portName: 'smoothUpscale', defaultOn: true },
+  { plugin: stashDepositAllPlugin, portName: 'stashDepositAll', defaultOn: true },
+  { plugin: experienceBarPlugin, portName: 'xpBar', defaultOn: true },
+  { plugin: autoGoldPickupPlugin, portName: 'autoGoldPickup', defaultOn: false },
+  { plugin: upgradeHintsPlugin, portName: 'upgradeHints', defaultOn: true },
+])('$plugin.id toggle plugin', ({ plugin, portName, defaultOn }) => {
   const createToggleHost = (port: PluginTogglePort | null) => createHost(plugin, { [portName]: port })
 
-  it('is registered as a valid, default-on toggle', () => {
+  it('is registered as a valid toggle with the expected default', () => {
     expect(BUILTIN_PLUGINS).toContain(plugin)
     expect(() => validatePluginRegistry([plugin])).not.toThrow()
-    expect(plugin.defaultEnabled).toBe(true)
+    expect(plugin.defaultEnabled).toBe(defaultOn)
     expect(plugin.settings).toBeUndefined()
     expect(containsCjkCharacters(plugin.name.en) || containsCjkCharacters(plugin.description.en)).toBe(false)
   })
 
   it('turns the port on while active and off on teardown', async () => {
     const port = portStub()
-    const host = createToggleHost(port)
-    await host.start()
+    const host = await startEnabled(createToggleHost(port), plugin.id)
     expect([port.enabled, host.getStatus(plugin.id).level]).toEqual([true, 'ok'])
     await host.destroy()
     expect(port.enabled).toBe(false)
@@ -70,8 +75,7 @@ describe.each([
 
   it('disabling the plugin restores vanilla behaviour', async () => {
     const port = portStub()
-    const host = createToggleHost(port)
-    await host.start()
+    const host = await startEnabled(createToggleHost(port), plugin.id)
     await host.setEnabled(plugin.id, false)
     expect(port.enabled).toBe(false)
     await host.setEnabled(plugin.id, true)
@@ -80,8 +84,7 @@ describe.each([
   })
 
   it('reports an error instead of silently doing nothing when the port is not wired', async () => {
-    const host = createToggleHost(null)
-    await host.start()
+    const host = await startEnabled(createToggleHost(null), plugin.id)
     expect(host.getStatus(plugin.id).level).toBe('error')
     await host.destroy()
   })
@@ -90,8 +93,7 @@ describe.each([
 describe('auto-combat plugin', () => {
   it('binds the configured key while active, follows setting changes and unbinds on teardown', async () => {
     let key: string | null = null
-    const host = createHost(autoCombatPlugin, { autoCombat: { getKey: () => key, setKey: (k) => void (key = k) } })
-    await host.start()
+    const host = await startEnabled(createHost(autoCombatPlugin, { autoCombat: { getKey: () => key, setKey: (k) => void (key = k) } }), 'auto-combat')
     expect([key, host.getStatus('auto-combat').level]).toEqual(['E', 'ok'])
     host.setSetting('auto-combat', 'key', 'SPACE')
     expect(key).toBe('SPACE')
@@ -103,8 +105,7 @@ describe('auto-combat plugin', () => {
 describe('auto-potion plugin', () => {
   it('applies the default thresholds, follows setting changes and switches off on teardown', async () => {
     let thresholds: AutoPotionThresholds | null = null
-    const host = createHost(autoPotionPlugin, { autoPotion: { getThresholds: () => thresholds, setThresholds: (t) => void (thresholds = t) } })
-    await host.start()
+    const host = await startEnabled(createHost(autoPotionPlugin, { autoPotion: { getThresholds: () => thresholds, setThresholds: (t) => void (thresholds = t) } }), 'auto-potion')
     expect([thresholds, host.getStatus('auto-potion').level]).toEqual([{ life: 50, rejuv: 25, mana: 20, merc: 40 }, 'ok'])
     host.setSetting('auto-potion', 'mana', '0')
     expect(thresholds).toMatchObject({ life: 50, mana: 0 })
@@ -113,9 +114,29 @@ describe('auto-potion plugin', () => {
   })
 
   it('reports an error when the port is not wired', async () => {
-    const host = createHost(autoPotionPlugin)
-    await host.start()
+    const host = await startEnabled(createHost(autoPotionPlugin), 'auto-potion')
     expect(host.getStatus('auto-potion').level).toBe('error')
     await host.destroy()
+  })
+})
+
+describe('automation plugins', () => {
+  it.each([autoCombatPlugin, autoPotionPlugin, autoGoldPickupPlugin])('$id starts off and stays on in the same browser once switched on', async (plugin) => {
+    const ports: Partial<PluginHostOptions> = {
+      autoCombat: { getKey: () => null, setKey() {} },
+      autoPotion: { getThresholds: () => null, setThresholds() {} },
+      autoGoldPickup: portStub(),
+    }
+    const storage = memoryStorage()
+    const first = createHost(plugin, ports, storage)
+    await first.start()
+    expect(first.isEnabled(plugin.id)).toBe(false)
+    await first.setEnabled(plugin.id, true)
+    await first.destroy()
+    const reloaded = createHost(plugin, ports, storage)
+    await reloaded.start()
+    expect(reloaded.isEnabled(plugin.id)).toBe(true)
+    await reloaded.destroy()
+    expect(createHost(plugin, ports).isEnabled(plugin.id)).toBe(false)
   })
 })

@@ -235,11 +235,12 @@ const INACTIVE_STATUS: PluginStatus = { level: 'warn', text: { zh: '未开启', 
 
 export function createTogglePlugin({
   port,
+  defaultEnabled = true,
   ...meta
-}: Pick<D2WebPlugin, 'id' | 'name' | 'description'> & { readonly port: (ctx: PluginContext) => PluginTogglePort }): D2WebPlugin {
+}: Pick<D2WebPlugin, 'id' | 'name' | 'description'> & { readonly port: (ctx: PluginContext) => PluginTogglePort; readonly defaultEnabled?: boolean }): D2WebPlugin {
   return {
     ...meta,
-    defaultEnabled: true,
+    defaultEnabled,
     activate: (ctx) => {
       port(ctx).setEnabled(true)
       return {
