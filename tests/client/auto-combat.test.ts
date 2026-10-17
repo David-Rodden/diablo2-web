@@ -163,3 +163,45 @@ describe('auto-fight hit confirmation', () => {
     expect(s.attacked().slice(0, 2)).toEqual([901, 902])
   })
 })
+
+describe('dead monsters whose corpse cannot be selected', () => {
+  const UNSELECTABLE: readonly [string, (unit: { states: Set<number>; corpseSuppressed: boolean }) => void][] = [
+    ['shattered', (u) => void u.states.add(107)],
+    ['corpse no-select', (u) => void u.states.add(118)],
+    ['corpse no-draw', (u) => void u.states.add(104)],
+    ['exploded', (u) => void u.states.add(173)],
+    ['redeemed', (u) => void u.states.add(99)],
+    ['suppressed', (u) => void (u.corpseSuppressed = true)],
+  ]
+
+  const killUnselectably = (s: ReturnType<typeof createSetup>, id: number, mark: (typeof UNSELECTABLE)[number][1]) => {
+    const unit = s.world.getUnit('monster', id)!
+    unit.mode = 12
+    unit.lifePct = 0
+    mark(unit as unknown as { states: Set<number>; corpseSuppressed: boolean })
+  }
+
+  it.each(UNSELECTABLE)('auto-fight never swings at a %s corpse and moves on to the living', (_name, mark) => {
+    const s = createSetup()
+    s.spawn(901, 19, 101, 100)
+    s.spawn(902, 19, 104, 100)
+    s.mapper.handleKeyDown({ key: 'E' })
+    s.fightFor(1000, 1000)
+    expect(s.attacked()).toEqual([901])
+    killUnselectably(s, 901, mark)
+    s.sent.length = 0
+    s.fightFor(1040, 1600)
+    expect(s.attacked().length).toBeGreaterThan(0)
+    expect(s.attacked().every((id) => id === 902)).toBe(true)
+  })
+
+  it.each(UNSELECTABLE)('holding the mouse on a %s corpse does not attack it', (_name, mark) => {
+    const s = createSetup()
+    s.spawn(901, 19, 103, 100)
+    killUnselectably(s, 901, mark)
+    const corpse = s.camera.subtileToScreen(103, 100)
+    s.mapper.handlePointerDown(corpse.x, corpse.y, 0, 1000)
+    for (let t = 1040; t <= 1600; t += 40) s.mapper.tick(t)
+    expect(s.attacked()).toEqual([])
+  })
+})
