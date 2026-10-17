@@ -40,6 +40,25 @@ describe('auto-potion planner', () => {
     expect(planner.plan(belt('hp3'), vitals({ life: 40 }), THRESHOLDS, 7_000)).toEqual({ column: 0, code: 'hp3', kind: 'life' })
   })
 
+  it('drinks again as soon as the server reports the healing effect has ended', () => {
+    const planner = new AutoPotionPlanner()
+    planner.record(planner.plan(belt('hp5', 'hp5'), vitals({ life: 40 }), THRESHOLDS, 0)!, 0)
+    expect(planner.plan(belt('hp5'), vitals({ life: 60, healingActive: true }), THRESHOLDS, 1_500)).toBeNull()
+    expect(planner.plan(belt('hp5'), vitals({ life: 40, healingActive: true }), THRESHOLDS, 2_500)).toBeNull()
+    expect(planner.plan(belt('hp5'), vitals({ life: 40 }), THRESHOLDS, 3_000)).toEqual({ column: 0, code: 'hp5', kind: 'life' })
+  })
+
+  it('keeps waiting out the potion duration when the server never reports the effect', () => {
+    const planner = new AutoPotionPlanner()
+    planner.record(planner.plan(belt('hp5', 'hp5'), vitals({ life: 40 }), THRESHOLDS, 0)!, 0)
+    expect(planner.plan(belt('hp5'), vitals({ life: 40 }), THRESHOLDS, 3_000)).toBeNull()
+    expect(planner.plan(belt('hp5'), vitals({ life: 40 }), THRESHOLDS, 10_000)).not.toBeNull()
+  })
+
+  it('never drinks a healing potion while one is still healing on the server', () => {
+    expect(new AutoPotionPlanner().plan(belt('hp3'), vitals({ life: 40, healingActive: true }), THRESHOLDS, 0)).toBeNull()
+  })
+
   it('drinks mana potions independently of healing potions', () => {
     const planner = new AutoPotionPlanner()
     planner.record({ column: 0, code: 'hp4', kind: 'life' }, 0)
@@ -133,30 +152,31 @@ const createMapperSetup = () => {
   const world = new ClientWorld()
   world.apply({ type: 'UnitAssign', unit: { unitType: 0, id: 1, classId: 1, name: 'Hero', x: 5000, y: 5000 }, isSelf: true })
   const hudManager = new HudManager()
-  Object.assign(hudManager, { hp: 100, maxHp: 100, mana: 50, maxMana: 50 })
+  Object.assign(hudManager, { maxHp: 100, maxMana: 50 })
+  const setLife = (life: number) => world.apply({ type: 'StatSet', stat: 6, value: life * 256 })
   const drinks: { col: number; toMerc: boolean }[] = []
   const used: number[] = []
   const hudModel = { useBeltSlot: (col: number, toMerc: boolean) => drinks.push({ col, toMerc }) > 0, useItem: (itemId: number) => void used.push(itemId) } as unknown as HudModel
   const mapper = new CommandMapper({ world, hudManager, hudModel })
   mapper.autoPotionThresholds = THRESHOLDS
-  return { world, hudManager, mapper, drinks, used }
+  return { world, hudManager, mapper, drinks, used, setLife }
 }
 
 describe('auto-potion in the command mapper', () => {
   it('drinks from the belt column holding the chosen potion', () => {
-    const { world, hudManager, mapper, drinks } = createMapperSetup()
+    const { world, mapper, drinks, setLife } = createMapperSetup()
     putInBelt(world, 41, 'mp3', 0)
     putInBelt(world, 42, 'hp2', 1)
-    hudManager.hp = 30
+    setLife(30)
     mapper.drinkPotionsIfLow(1_000)
     expect(drinks).toEqual([{ col: 1, toMerc: false }])
   })
 
   it('uses an inventory potion ahead of the belt', () => {
-    const { world, hudManager, mapper, drinks, used } = createMapperSetup()
+    const { world, mapper, drinks, used, setLife } = createMapperSetup()
     putInBelt(world, 71, 'hp2', 0)
     putInInventory(world, 72, 'hp2')
-    hudManager.hp = 30
+    setLife(30)
     mapper.drinkPotionsIfLow(1_000)
     expect([used, drinks]).toEqual([[72], []])
   })
@@ -172,10 +192,10 @@ describe('auto-potion in the command mapper', () => {
   })
 
   it('stays idle in town', () => {
-    const { world, hudManager, mapper, drinks } = createMapperSetup()
+    const { world, hudManager, mapper, drinks, setLife } = createMapperSetup()
     world.apply({ type: 'LoadAct', act: 0, areaId: 1, mapSeed: 1 } as never)
     putInBelt(world, 61, 'hp2', 0)
-    hudManager.hp = 10
+    setLife(10)
     mapper.drinkPotionsIfLow(1_000)
     expect([drinks, hudManager.potionShortage]).toEqual([[], null])
   })
