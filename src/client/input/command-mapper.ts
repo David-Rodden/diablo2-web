@@ -2815,11 +2815,6 @@ export class CommandMapper {
         return false
       }
     }
-    if (this.isAutoCombatKey(event.key)) {
-      if (!event.repeat) this.setAutoCombatOn(!this.autoCombatOn)
-      event.preventDefault?.()
-      return true
-    }
     const handled = this.handleKeyDownInternal(event, nowMs)
     if (handled && event && typeof event === 'object') {
       const ev = event as { _d2KeyHandled?: boolean; _d2HandledByCommandMapper?: boolean }
@@ -2837,10 +2832,16 @@ export class CommandMapper {
       altKey?: boolean | undefined
       ctrlKey?: boolean | undefined
       metaKey?: boolean | undefined
+      repeat?: boolean | undefined
       preventDefault?: (() => void) | undefined
     },
     nowMs = performance.now(),
   ): boolean {
+    if (this.isAutoCombatKey(event.key)) {
+      if (!event.repeat) this.setAutoCombatOn(!this.autoCombatOn)
+      event.preventDefault?.()
+      return true
+    }
     if (event.key === 'Shift' || event.shiftKey) {
       this.shiftHeld = true
     }
