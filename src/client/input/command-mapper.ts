@@ -103,6 +103,8 @@ const GOLD_DETOUR_RETRY_MS = 2500
 const AUTO_GOLD_RADIUS_SUBTILES = 20
 const AUTO_COMBAT_REPEAT_MS = 40
 const HIT_CONFIRM_SLACK_MS = 120
+const STATE_HEALTHPOT = 100
+const STATE_MANAPOT = 106
 const DEFAULT_PING_MS = 200
 const CARRIED_GOLD_PER_LEVEL = 10_000
 const INTERACTION_PANELS = new Set(['stash', 'cube', 'vendor', 'hire', 'imbue', 'add_sockets', 'personalize', 'trade', 'waypoint'])
@@ -422,8 +424,18 @@ export class CommandMapper {
     const active = thresholds !== null && !this.world.isDead && !this.isTownArea()
     const { inventory, belt } = this.world.containers
     const potions = active ? [...inventoryPotions(inventory.values()), ...bottomBeltPotions(belt.values())] : []
-    const { hp = 0, maxHp = 0, mana = 0, maxMana = 0 } = this.hudManager
-    const vitals = { life: hp, maxLife: maxHp, mana, maxMana, mercLifePct: active ? this.mercLifePct() : null }
+    const { self } = this.world
+    const maxLife = this.hudManager.maxHp || self.maxLife
+    const maxMana = this.hudManager.maxMana || self.maxMana
+    const vitals = {
+      life: Math.min(self.life, maxLife),
+      maxLife,
+      mana: Math.min(self.mana, maxMana),
+      maxMana,
+      mercLifePct: active ? this.mercLifePct() : null,
+      healingActive: self.states.has(STATE_HEALTHPOT),
+      manaActive: self.states.has(STATE_MANAPOT),
+    }
     this.hudManager.potionShortage = active ? potionShortage(potions, thresholds, vitals) : null
     if (!active || this.hudModel === null) return
     const drink = this.autoPotion.plan(potions, vitals, thresholds, nowMs)

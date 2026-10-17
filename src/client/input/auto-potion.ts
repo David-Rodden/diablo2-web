@@ -20,6 +20,8 @@ export interface PotionVitals {
   readonly mana: number
   readonly maxMana: number
   readonly mercLifePct: number | null
+  readonly healingActive?: boolean
+  readonly manaActive?: boolean
 }
 
 export type PotionKind = 'life' | 'mana' | 'merc'
@@ -56,13 +58,17 @@ export const potionShortage = (potions: readonly Potion[], thresholds: AutoPotio
 
 export class AutoPotionPlanner {
   private readonly effectUntil: Record<PotionKind, number> = { life: Number.NEGATIVE_INFINITY, mana: Number.NEGATIVE_INFINITY, merc: Number.NEGATIVE_INFINITY }
+  private readonly confirmed: Record<PotionKind, boolean> = { life: false, mana: false, merc: false }
   private lastDrinkMs = Number.NEGATIVE_INFINITY
 
   plan(potions: readonly Potion[], vitals: PotionVitals, thresholds: AutoPotionThresholds, nowMs: number): PotionDrink | null {
+    const serverActive: Record<PotionKind, boolean> = { life: Boolean(vitals.healingActive), mana: Boolean(vitals.manaActive), merc: false }
+    this.confirmed.life ||= serverActive.life
+    this.confirmed.mana ||= serverActive.mana
     if (nowMs - this.lastDrinkMs < DRINK_GAP_MS || vitals.maxLife <= 0 || vitals.life <= 0) return null
     const lifePct = percent(vitals.life, vitals.maxLife)
     const manaPct = percent(vitals.mana, vitals.maxMana)
-    const free = (kind: PotionKind) => nowMs >= this.effectUntil[kind]
+    const free = (kind: PotionKind) => !serverActive[kind] && (this.confirmed[kind] || nowMs >= this.effectUntil[kind])
     const drink = (potion: Potion | undefined, kind: PotionKind): PotionDrink | null => (potion ? { ...potion, kind } : null)
     const pick = (stock: readonly Potion[], matches: (p: Potion) => boolean, amountOf: (p: Potion) => number, deficit: number) =>
       smallestCovering(stock.filter((p) => matches(p) && !inBelt(p)), amountOf, deficit) ?? smallestCovering(stock.filter((p) => matches(p) && inBelt(p)), amountOf, deficit)
@@ -83,6 +89,7 @@ export class AutoPotionPlanner {
 
   record(drink: PotionDrink, nowMs: number): void {
     this.lastDrinkMs = nowMs
+    this.confirmed[drink.kind] = false
     this.effectUntil[drink.kind] = nowMs + (spec(drink.code)?.durationTicks ?? 0) * FRAME_MS
   }
 }
