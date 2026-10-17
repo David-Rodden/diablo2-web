@@ -1551,7 +1551,7 @@ export async function startPlayApp(options?: {
   // `push 0xa ; call [Sleep]` @0x6FAECB94). Hidden tabs get no requestAnimationFrame, so a
   // timer runs the owed ticks until the tab is visible again.
   let hiddenTickTimer: ReturnType<typeof setInterval> | null = null
-  let lastWorldRenderMs: number | null = null
+  let nextWorldRenderMs: number | null = null
   trackListener(document, 'visibilitychange', () => {
     if (document.hidden) {
       if (hiddenTickTimer === null) {
@@ -1641,15 +1641,13 @@ export async function startPlayApp(options?: {
     // only the world+HUD draw is postponed.
     const worldRenderFpsCap = settingsStore.get().worldRenderFps === 30 ? 30 : 0
     if (worldRenderFpsCap > 0) {
-      // 2ms slack: rAF timestamps jitter ±0.5ms, and an exact-multiple cap
-      // (e.g. 33.3ms on 60Hz) otherwise flaps at the boundary and skips to the
-      // next frame slot (a "30" cap measuring ~22).
-      const capMs = 1000 / worldRenderFpsCap - 2
-      if (lastWorldRenderMs !== null && nowMs - lastWorldRenderMs < capMs) {
-        return
-      }
+      const frameMs = 1000 / worldRenderFpsCap
+      if (nextWorldRenderMs !== null && nowMs < nextWorldRenderMs - 2) return
+      nextWorldRenderMs = nextWorldRenderMs === null || nowMs - nextWorldRenderMs > frameMs ? nowMs + frameMs : nextWorldRenderMs + frameMs
+    } else {
+      nextWorldRenderMs = null
     }
-    lastWorldRenderMs = nowMs
+    session.frameTimeMs = nowMs
 
     const currentSettings = settingsStore.get()
     const profile = getViewportProfile(currentSettings.viewport)

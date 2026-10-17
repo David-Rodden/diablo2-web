@@ -2236,8 +2236,10 @@ export function renderSceneSourceFrame(ctx: SceneSourceRenderContext): SceneFram
         : snapshot.playerWorld
     const camX = effectivePlayerWorld.x + panelShiftX
     const camY = effectivePlayerWorld.y + CAMERA_Y_OFFSET
-    const renderCamX = camX + (snapshot.shakeOffsetX ?? 0)
-    const renderCamY = camY + (snapshot.shakeOffsetY ?? 0)
+    const pixelScale = renderer?.pixelScale ?? 1
+    const snapToPixel = (v: number) => Math.round(v * pixelScale) / pixelScale
+    const renderCamX = snapToPixel(camX + (snapshot.shakeOffsetX ?? 0))
+    const renderCamY = snapToPixel(camY + (snapshot.shakeOffsetY ?? 0))
 
     if (renderer !== null) {
       ctx.tileGpuCache?.ensureActPalette(snapshot.actId)

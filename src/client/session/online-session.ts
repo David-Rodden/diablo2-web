@@ -570,8 +570,10 @@ export class OnlineSession {
     return this as unknown as SessionRenderBuilderHost
   }
 
+  frameTimeMs: number | null = null
+
   renderInterpolationAlpha(): number {
-    return Math.min(1, Math.max(0, (performance.now() - this.logicClock.getLastTickMs()) / D2_LOGIC_TICK_MS))
+    return Math.min(1, Math.max(0, ((this.frameTimeMs ?? performance.now()) - this.logicClock.getLastTickMs()) / D2_LOGIC_TICK_MS))
   }
 
   private asReplayHost(): SessionReplayHost {
