@@ -16,7 +16,7 @@ export const autoCombatPlugin: D2WebPlugin = {
       key: 'key',
       label: { zh: '按键', en: 'Key' },
       default: 'E',
-      options: KEYS.map((key) => ({ value: key, label: { zh: key === 'SPACE' ? '空格' : key, en: key === 'SPACE' ? 'Space' : key } })),
+      options: KEYS.map((key) => ({ value: key, label: key === 'SPACE' ? { zh: '空格', en: 'Space' } : { zh: key, en: key } })),
     },
   ],
   activate(ctx) {

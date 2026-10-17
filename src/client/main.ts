@@ -107,6 +107,11 @@ import {
   weatherWorldDrawnFromSidePanels,
 } from './weather/weather-render-pass.ts'
 
+const togglePortFor = <K extends PropertyKey>(target: Record<K, boolean>, key: K) => ({
+  isEnabled: () => target[key],
+  setEnabled: (enabled: boolean) => void (target[key] = enabled),
+})
+
 const PRELOAD_MONSTER_IDS = [
   'fallen1',
   'FallenShaman1',
@@ -567,38 +572,14 @@ export async function startPlayApp(options?: {
     settingsStore,
     enforceClientDefaults: true,
     quickCast: quickCastPort,
-    dragInteract: {
-      isEnabled: () => session.commandMapper.dragInteractMode,
-      setEnabled: (enabled) => void (session.commandMapper.dragInteractMode = enabled),
-    },
-    smoothText: {
-      isEnabled: () => smoothTextSetting.enabled,
-      setEnabled: (enabled) => void (smoothTextSetting.enabled = enabled),
-    },
-    stashDepositAll: {
-      isEnabled: () => hudManager.worldPanels.stashDepositAllEnabled,
-      setEnabled: (enabled) => void (hudManager.worldPanels.stashDepositAllEnabled = enabled),
-    },
-    xpBar: {
-      isEnabled: () => hudManager.showXpBar,
-      setEnabled: (enabled) => void (hudManager.showXpBar = enabled),
-    },
-    autoGoldPickup: {
-      isEnabled: () => session.commandMapper.autoGoldPickup,
-      setEnabled: (enabled) => void (session.commandMapper.autoGoldPickup = enabled),
-    },
-    smoothUpscale: {
-      isEnabled: () => smoothUpscaleSetting.enabled,
-      setEnabled: (enabled) => void (smoothUpscaleSetting.enabled = enabled),
-    },
-    upgradeHints: {
-      isEnabled: () => hudManager.upgradeHints,
-      setEnabled: (enabled) => void (hudManager.upgradeHints = enabled),
-    },
-    autoCombat: {
-      getKey: () => session.commandMapper.autoCombatKey,
-      setKey: (key) => void (session.commandMapper.autoCombatKey = key),
-    },
+    dragInteract: togglePortFor(session.commandMapper, 'dragInteractMode'),
+    smoothText: togglePortFor(smoothTextSetting, 'enabled'),
+    stashDepositAll: togglePortFor(hudManager.worldPanels, 'stashDepositAllEnabled'),
+    xpBar: togglePortFor(hudManager, 'showXpBar'),
+    autoGoldPickup: togglePortFor(session.commandMapper, 'autoGoldPickup'),
+    smoothUpscale: togglePortFor(smoothUpscaleSetting, 'enabled'),
+    upgradeHints: togglePortFor(hudManager, 'upgradeHints'),
+    autoCombat: { getKey: () => session.commandMapper.autoCombatKey, setKey: (key) => void (session.commandMapper.autoCombatKey = key) },
     autoPotion: {
       getThresholds: () => session.commandMapper.autoPotionThresholds,
       setThresholds: (thresholds) => void (session.commandMapper.autoPotionThresholds = thresholds),

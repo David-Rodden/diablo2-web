@@ -149,29 +149,19 @@ export class FsrUpscaler {
   }
 
   present(outWidth: number, outHeight: number): void {
-    const { gl, scene } = this
+    const { gl, scene, easu, rcas } = this
     if (scene === null) return
-    this.upscaled = this.ensureTarget(this.upscaled, outWidth, outHeight)
+    const upscaled = (this.upscaled = this.ensureTarget(this.upscaled, outWidth, outHeight))
     gl.disable(gl.BLEND)
     gl.disable(gl.SCISSOR_TEST)
     gl.viewport(0, 0, outWidth, outHeight)
     gl.bindVertexArray(null)
     gl.activeTexture(gl.TEXTURE0)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.upscaled.framebuffer)
-    gl.useProgram(this.easu.program)
-    gl.bindTexture(gl.TEXTURE_2D, scene.texture)
-    gl.uniform1i(this.easu.uniforms.u_input!, 0)
-    gl.uniform2f(this.easu.uniforms.u_inSize!, scene.width, scene.height)
-    gl.uniform2f(this.easu.uniforms.u_outSize!, outWidth, outHeight)
-    gl.drawArrays(gl.TRIANGLES, 0, 3)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    gl.useProgram(this.rcas.program)
-    gl.bindTexture(gl.TEXTURE_2D, this.upscaled.texture)
-    gl.uniform1i(this.rcas.uniforms.u_input!, 0)
-    gl.uniform1f(this.rcas.uniforms.u_sharpness!, 2 ** -RCAS_SHARPNESS_STOPS)
-    gl.drawArrays(gl.TRIANGLES, 0, 3)
+    this.runPass(easu, upscaled.framebuffer, scene.texture, () => {
+      gl.uniform2f(easu.uniforms.u_inSize!, scene.width, scene.height)
+      gl.uniform2f(easu.uniforms.u_outSize!, outWidth, outHeight)
+    })
+    this.runPass(rcas, null, upscaled.texture, () => gl.uniform1f(rcas.uniforms.u_sharpness!, 2 ** -RCAS_SHARPNESS_STOPS))
     gl.enable(gl.BLEND)
   }
 
@@ -180,8 +170,18 @@ export class FsrUpscaler {
     ;[this.easu, this.rcas].forEach((pass) => this.gl.deleteProgram(pass.program))
   }
 
+  private runPass({ program, uniforms }: Pass, framebuffer: WebGLFramebuffer | null, input: WebGLTexture, setUniforms: () => void): void {
+    const { gl } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+    gl.useProgram(program)
+    gl.bindTexture(gl.TEXTURE_2D, input)
+    gl.uniform1i(uniforms.u_input!, 0)
+    setUniforms()
+    gl.drawArrays(gl.TRIANGLES, 0, 3)
+  }
+
   private ensureTarget(existing: Target | null, width: number, height: number): Target {
-    if (existing && existing.width === width && existing.height === height) return existing
+    if (existing?.width === width && existing.height === height) return existing
     if (existing) this.deleteTarget(existing)
     const { gl } = this
     const texture = gl.createTexture()!

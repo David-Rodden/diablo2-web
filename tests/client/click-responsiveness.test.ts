@@ -19,15 +19,7 @@ function createSetup(displayOffset?: (key: string) => DisplayOffset) {
   predictor.setPosition(5000, 5000)
   world.apply({ type: 'LoadAct', act: 0, mapSeed: 0x11223344, areaId: 2 })
   world.apply({ type: 'PlayerAssign', unitId: 1, classId: 1, name: 'Hero', x: 5000, y: 5000 })
-  const mapper = new CommandMapper({
-    world,
-    hudManager,
-    hudModel,
-    predictor,
-    rateLimiter: new OutboundRateLimiter(),
-    sendCommand: (cmd) => sent.push(cmd),
-    displayOffset,
-  })
+  const mapper = new CommandMapper({ world, hudManager, hudModel, predictor, rateLimiter: new OutboundRateLimiter(), sendCommand: (cmd) => sent.push(cmd), displayOffset })
   const movesSent = () => sent.filter((c) => classifyClientCommand(c) === 'movement').length
   return { world, mapper, movesSent }
 }
@@ -76,12 +68,7 @@ describe('CommandMapper click responsiveness', () => {
     const offsets = new Map<string, DisplayOffset>([['monster:77', { dx: -3, dy: 0 }]])
     const smoothed = createSetup((key) => offsets.get(key) ?? { dx: 0, dy: 0 })
     const plain = createSetup()
-    for (const { world } of [smoothed, plain]) {
-      world.apply({
-        type: 'UnitAssign',
-        unit: { unitType: 1, id: 77, classId: 5, name: 'Fallen', x: 5010, y: 5000, mode: 1 },
-      })
-    }
+    for (const { world } of [smoothed, plain]) world.apply({ type: 'UnitAssign', unit: { unitType: 1, id: 77, classId: 5, name: 'Fallen', x: 5010, y: 5000, mode: 1 } })
     expect(smoothed.mapper.pickUnitAtSubtile(5007, 5000, 1)?.id).toBe(77)
     expect(plain.mapper.pickUnitAtSubtile(5007, 5000, 1)).toBeNull()
   })

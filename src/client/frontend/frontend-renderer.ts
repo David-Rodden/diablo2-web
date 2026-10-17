@@ -13,7 +13,7 @@
 
 import { CursorController } from '../ui/cursor.ts'
 import { syncCrispBackingStore } from '../view/crisp-scale.ts'
-import { blitGlyph, fontStackFor, type FontAtlasMeta, type GlyphAtlas } from '../ui/font.ts'
+import { blitGlyph, fontStackFor, type FontAtlasMeta } from '../ui/font.ts'
 import { physicalGlyphScale, smoothTextSetting, VectorGlyphAtlas } from '../ui/vector-glyph-atlas.ts'
 import {
   CAMPFIRE_CLASS_ORDER,
@@ -780,7 +780,7 @@ export class FrontendRenderer {
     const vector =
       smoothTextSetting.enabled && scale > 1 && !options.atlasKey && !BITMAP_ONLY_FONTS.has(font) &&
       this.vectorAtlas.get(`${font}-c${color}`, atlas, meta, fontStackFor(font), this.getCjkColorHex(color, isMultiplyBtn), scale)
-    const glyphAtlas: GlyphAtlas = vector ? { image: vector, scale } : { image: atlas, scale: 1 }
+    const glyphAtlas = vector ? { image: vector, scale } : { image: atlas, scale: 1 }
 
     if (options.blendMode) {
       this.ctx.save()

@@ -20,7 +20,7 @@ const createSetup = (enabled = true, level = 1) => {
   const hudManager = new HudManager()
   const mapper = new CommandMapper({ world, hudManager, sendCommand: (cmd) => sent.push(cmd) })
   mapper.autoGoldPickup = enabled
-  const pickups = () => sent.filter((c) => c.type === 'ItemPickup').map((c) => (c as { itemId: number }).itemId)
+  const pickups = () => sent.flatMap((c) => (c.type === 'ItemPickup' ? [c.itemId] : []))
   return { world, mapper, hudManager, pickups, sent }
 }
 

@@ -165,7 +165,8 @@ describe('auto-fight hit confirmation', () => {
 })
 
 describe('dead monsters whose corpse cannot be selected', () => {
-  const UNSELECTABLE: readonly [string, (unit: { states: Set<number>; corpseSuppressed: boolean }) => void][] = [
+  type Corpse = { states: Set<number>; corpseSuppressed: boolean }
+  const UNSELECTABLE: readonly [string, (unit: Corpse) => void][] = [
     ['shattered', (u) => void u.states.add(107)],
     ['corpse no-select', (u) => void u.states.add(118)],
     ['corpse no-draw', (u) => void u.states.add(104)],
@@ -178,7 +179,7 @@ describe('dead monsters whose corpse cannot be selected', () => {
     const unit = s.world.getUnit('monster', id)!
     unit.mode = 12
     unit.lifePct = 0
-    mark(unit as unknown as { states: Set<number>; corpseSuppressed: boolean })
+    mark(unit as unknown as Corpse)
   }
 
   it.each(UNSELECTABLE)('auto-fight never swings at a %s corpse and moves on to the living', (_name, mark) => {

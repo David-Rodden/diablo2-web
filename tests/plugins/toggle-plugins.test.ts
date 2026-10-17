@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { containsCjkCharacters, validatePluginRegistry, type PluginSessionView, type PluginTogglePort } from '../../src/client/plugin-host/api.ts'
+import {
+  containsCjkCharacters,
+  validatePluginRegistry,
+  type AutoPotionThresholds,
+  type D2WebPlugin,
+  type PluginSessionView,
+  type PluginTogglePort,
+} from '../../src/client/plugin-host/api.ts'
 import { PluginConfigStore } from '../../src/client/plugin-host/plugin-config-store.ts'
-import { PluginHost } from '../../src/client/plugin-host/plugin-host.ts'
+import { PluginHost, type PluginHostOptions } from '../../src/client/plugin-host/plugin-host.ts'
 import { BUILTIN_PLUGINS } from '../../plugins/index.ts'
 import { dragInteractPlugin } from '../../plugins/drag-interact/index.ts'
 import { smoothTextPlugin } from '../../plugins/smooth-text/index.ts'
@@ -11,13 +18,22 @@ import { experienceBarPlugin } from '../../plugins/experience-bar/index.ts'
 import { autoGoldPickupPlugin } from '../../plugins/auto-gold-pickup/index.ts'
 import { autoCombatPlugin } from '../../plugins/auto-combat/index.ts'
 import { autoPotionPlugin } from '../../plugins/auto-potion/index.ts'
-import type { AutoPotionThresholds } from '../../src/client/plugin-host/api.ts'
 import { upgradeHintsPlugin } from '../../plugins/upgrade-hints/index.ts'
 
 const memoryStorage = () => {
   const map = new Map<string, string>()
   return { getItem: (k: string) => map.get(k) ?? null, setItem: (k: string, v: string) => void map.set(k, v), removeItem: (k: string) => void map.delete(k) }
 }
+
+const createHost = (plugin: D2WebPlugin, ports: Partial<PluginHostOptions> = {}) =>
+  new PluginHost({
+    plugins: [plugin],
+    configStore: new PluginConfigStore([plugin], { storage: memoryStorage() }),
+    session: { phase: 'lobby', world: {}, loginHost: null, getSnapshot: () => ({}), onServerEvent: () => () => {}, onStateChange: () => () => {} } as unknown as PluginSessionView,
+    toolbar: { setPluginsButtonState() {}, addContribution: () => () => {} },
+    autoStart: false,
+    ...ports,
+  })
 
 const portStub = () => {
   const stub = { enabled: false, isEnabled: () => stub.enabled, setEnabled: (v: boolean) => void (stub.enabled = v) }
@@ -33,15 +49,7 @@ describe.each([
   { plugin: autoGoldPickupPlugin, portName: 'autoGoldPickup' },
   { plugin: upgradeHintsPlugin, portName: 'upgradeHints' },
 ])('$plugin.id toggle plugin', ({ plugin, portName }) => {
-  const createHost = (port: PluginTogglePort | null) =>
-    new PluginHost({
-      plugins: [plugin],
-      configStore: new PluginConfigStore([plugin], { storage: memoryStorage() }),
-      session: { phase: 'lobby', world: {}, loginHost: null, getSnapshot: () => ({}), onServerEvent: () => () => {}, onStateChange: () => () => {} } as unknown as PluginSessionView,
-      toolbar: { setPluginsButtonState() {}, addContribution: () => () => {} },
-      [portName]: port,
-      autoStart: false,
-    })
+  const createToggleHost = (port: PluginTogglePort | null) => createHost(plugin, { [portName]: port })
 
   it('is registered as a valid, default-on toggle', () => {
     expect(BUILTIN_PLUGINS).toContain(plugin)
@@ -53,7 +61,7 @@ describe.each([
 
   it('turns the port on while active and off on teardown', async () => {
     const port = portStub()
-    const host = createHost(port)
+    const host = createToggleHost(port)
     await host.start()
     expect([port.enabled, host.getStatus(plugin.id).level]).toEqual([true, 'ok'])
     await host.destroy()
@@ -62,7 +70,7 @@ describe.each([
 
   it('disabling the plugin restores vanilla behaviour', async () => {
     const port = portStub()
-    const host = createHost(port)
+    const host = createToggleHost(port)
     await host.start()
     await host.setEnabled(plugin.id, false)
     expect(port.enabled).toBe(false)
@@ -72,7 +80,7 @@ describe.each([
   })
 
   it('reports an error instead of silently doing nothing when the port is not wired', async () => {
-    const host = createHost(null)
+    const host = createToggleHost(null)
     await host.start()
     expect(host.getStatus(plugin.id).level).toBe('error')
     await host.destroy()
@@ -82,14 +90,7 @@ describe.each([
 describe('auto-combat plugin', () => {
   it('binds the configured key while active, follows setting changes and unbinds on teardown', async () => {
     let key: string | null = null
-    const host = new PluginHost({
-      plugins: [autoCombatPlugin],
-      configStore: new PluginConfigStore([autoCombatPlugin], { storage: memoryStorage() }),
-      session: { phase: 'lobby', world: {}, loginHost: null, getSnapshot: () => ({}), onServerEvent: () => () => {}, onStateChange: () => () => {} } as unknown as PluginSessionView,
-      toolbar: { setPluginsButtonState() {}, addContribution: () => () => {} },
-      autoCombat: { getKey: () => key, setKey: (k) => void (key = k) },
-      autoStart: false,
-    })
+    const host = createHost(autoCombatPlugin, { autoCombat: { getKey: () => key, setKey: (k) => void (key = k) } })
     await host.start()
     expect([key, host.getStatus('auto-combat').level]).toEqual(['E', 'ok'])
     host.setSetting('auto-combat', 'key', 'SPACE')
@@ -99,18 +100,10 @@ describe('auto-combat plugin', () => {
   })
 })
 
-
 describe('auto-potion plugin', () => {
   it('applies the default thresholds, follows setting changes and switches off on teardown', async () => {
     let thresholds: AutoPotionThresholds | null = null
-    const host = new PluginHost({
-      plugins: [autoPotionPlugin],
-      configStore: new PluginConfigStore([autoPotionPlugin], { storage: memoryStorage() }),
-      session: { phase: 'lobby', world: {}, loginHost: null, getSnapshot: () => ({}), onServerEvent: () => () => {}, onStateChange: () => () => {} } as unknown as PluginSessionView,
-      toolbar: { setPluginsButtonState() {}, addContribution: () => () => {} },
-      autoPotion: { getThresholds: () => thresholds, setThresholds: (t) => void (thresholds = t) },
-      autoStart: false,
-    })
+    const host = createHost(autoPotionPlugin, { autoPotion: { getThresholds: () => thresholds, setThresholds: (t) => void (thresholds = t) } })
     await host.start()
     expect([thresholds, host.getStatus('auto-potion').level]).toEqual([{ life: 50, rejuv: 25, mana: 20, merc: 40 }, 'ok'])
     host.setSetting('auto-potion', 'mana', '0')
@@ -120,13 +113,7 @@ describe('auto-potion plugin', () => {
   })
 
   it('reports an error when the port is not wired', async () => {
-    const host = new PluginHost({
-      plugins: [autoPotionPlugin],
-      configStore: new PluginConfigStore([autoPotionPlugin], { storage: memoryStorage() }),
-      session: { phase: 'lobby', world: {}, loginHost: null, getSnapshot: () => ({}), onServerEvent: () => () => {}, onStateChange: () => () => {} } as unknown as PluginSessionView,
-      toolbar: { setPluginsButtonState() {}, addContribution: () => () => {} },
-      autoStart: false,
-    })
+    const host = createHost(autoPotionPlugin)
     await host.start()
     expect(host.getStatus('auto-potion').level).toBe('error')
     await host.destroy()

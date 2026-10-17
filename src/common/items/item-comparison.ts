@@ -27,13 +27,13 @@ interface BuildView {
 
 const viewOf = ({ classIndex, skillPoints }: BuildProfile): BuildView => {
   const invested = [...skillPoints].filter(([, points]) => points > 0).map(([id, points]) => ({ skill: SKILLS_BY_ID[id], points }))
-  const weaponPoints = invested.filter(({ skill }) => (skill?.srcDamage ?? 0) > 0).reduce((sum, { points }) => sum + points, 0)
+  const pointsWhere = (matches: (skill: (typeof invested)[number]['skill']) => boolean): number =>
+    invested.filter(({ skill }) => matches(skill)).reduce((sum, { points }) => sum + points, 0)
   return {
     classIndex,
-    weaponBased: CLASS_CODES[classIndex] === 'bar' || invested.length === 0 || weaponPoints > 0,
+    weaponBased: CLASS_CODES[classIndex] === 'bar' || invested.length === 0 || pointsWhere((skill) => (skill?.srcDamage ?? 0) > 0) > 0,
     pointsInSkill: (skillId) => skillPoints.get(skillId) ?? 0,
-    pointsInTab: (cls, tab) =>
-      invested.filter(({ skill }) => skill?.classCode === CLASS_CODES[cls] && skill.tabIndex === tab).reduce((sum, { points }) => sum + points, 0),
+    pointsInTab: (cls, tab) => pointsWhere((skill) => skill?.classCode === CLASS_CODES[cls] && skill.tabIndex === tab),
   }
 }
 
@@ -89,8 +89,7 @@ export function compareItems(candidate: UiInventoryItem, current: UiInventoryIte
   const gains = diffs.filter((d) => d > 0).length
   if (gains === 0) return null
   if (diffs.some((d) => d < 0)) return 'unsure'
-  const much = rivalPrimary > 0 ? primary >= rivalPrimary * MUCH_BETTER_RATIO : gains >= MUCH_BETTER_GAINS
-  return much ? 'much-better' : 'better'
+  return (rivalPrimary > 0 ? primary >= rivalPrimary * MUCH_BETTER_RATIO : gains >= MUCH_BETTER_GAINS) ? 'much-better' : 'better'
 }
 
 export function upgradeVerdict(
@@ -101,11 +100,12 @@ export function upgradeVerdict(
   const [primarySlot] = candidate.allowedSlots
   if (!canUse || primarySlot === undefined) return null
   if (unidentified) return 'unsure'
-  const verdicts = candidate.allowedSlots
-    .map((slot) => ({ slot, current: equipped[slot] ?? null }))
-    .filter(({ slot, current }) => (current ? current !== candidate && isWeapon(current) === isWeapon(candidate) : slot === primarySlot || slot.startsWith('ring')))
-    .map(({ current }) => compareItems(candidate, current, build))
-    .filter((v): v is UpgradeVerdict => v !== null)
-  const best = verdicts.sort((a, b) => RANK[b] - RANK[a])[0] ?? null
+  const best =
+    candidate.allowedSlots
+      .map((slot) => ({ slot, current: equipped[slot] ?? null }))
+      .filter(({ slot, current }) => (current ? current !== candidate && isWeapon(current) === isWeapon(candidate) : slot === primarySlot || slot.startsWith('ring')))
+      .map(({ current }) => compareItems(candidate, current, build))
+      .filter((v): v is UpgradeVerdict => v !== null)
+      .sort((a, b) => RANK[b] - RANK[a])[0] ?? null
   return best !== null && candidate.twoHanded && equipped.weapon2 ? 'unsure' : best
 }

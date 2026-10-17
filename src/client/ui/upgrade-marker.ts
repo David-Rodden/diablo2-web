@@ -7,7 +7,9 @@ const CROSS_LIFT = 5
 const CROSS_COLOR = '#38d838'
 const CROSS_EDGE = 'rgba(0, 0, 0, 0.85)'
 
-const crossCount = (verdict: UpgradeVerdict | null): number => (verdict === 'much-better' ? 2 : verdict === 'better' ? 1 : 0)
+const CROSS_COUNT: Record<UpgradeVerdict, number> = { 'much-better': 2, better: 1, unsure: 0 }
+
+const crossCount = (verdict: UpgradeVerdict | null): number => (verdict ? CROSS_COUNT[verdict] : 0)
 
 export const upgradeSuffix = (verdict: UpgradeVerdict | null): string =>
   verdict === 'unsure' ? ' ÿc;?' : ' '.repeat(crossCount(verdict) && crossCount(verdict) + 1)
@@ -26,14 +28,13 @@ export function drawUpgradeCrosses(
   const cy = baselineY - CROSS_LIFT
   ctx.save()
   ctx.lineCap = 'square'
-  for (let i = 0; i < count; i++) {
-    const cx = right - CROSS_CELL * (count - i) + CROSS_CELL / 2
+  Array.from({ length: count }, (_, i) => right - CROSS_CELL * (count - i) + CROSS_CELL / 2).forEach((cx) => {
     ctx.beginPath()
     ctx.moveTo(cx - CROSS_ARM, cy)
     ctx.lineTo(cx + CROSS_ARM, cy)
     ctx.moveTo(cx, cy - CROSS_ARM)
     ctx.lineTo(cx, cy + CROSS_ARM)
     ;([[CROSS_EDGE, 3.2], [CROSS_COLOR, 1.6]] as const).forEach(([strokeStyle, lineWidth]) => Object.assign(ctx, { strokeStyle, lineWidth }).stroke())
-  }
+  })
   ctx.restore()
 }

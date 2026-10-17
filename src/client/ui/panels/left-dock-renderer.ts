@@ -16,11 +16,12 @@ const isInsideRelRect = (x: number, y: number, r: { readonly relX0: number; read
 
 function drawStashDepositAllButton(ctx: CanvasRenderingContext2D, font: D2FontRenderer, ox: number, oy: number, label: string): void {
   const { relX0, relX1, relY0, relY1 } = STASH_DEPOSIT_ALL_BTN
+  const [x, y, w, h] = [ox + relX0, oy + relY0, relX1 - relX0, relY1 - relY0]
   ctx.fillStyle = STONE_BOX_BG_FILL
-  ctx.fillRect(ox + relX0, oy + relY0, relX1 - relX0, relY1 - relY0)
+  ctx.fillRect(x, y, w, h)
   ctx.strokeStyle = '#8c7448'
-  ctx.strokeRect(ox + relX0 + 0.5, oy + relY0 + 0.5, relX1 - relX0 - 1, relY1 - relY0 - 1)
-  font.drawText(ctx, label, ox + (relX0 + relX1) / 2, oy + relY1 - 6, { font: 'font16', color: 'gold', align: 'center' })
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1)
+  font.drawText(ctx, label, x + w / 2, y + h - 6, { font: 'font16', color: 'gold', align: 'center' })
 }
 
 export function handleMouseMoveImpl(this: WorldPanelsHud, logicalX: number, logicalY: number): void {
@@ -1990,11 +1991,8 @@ export function renderActiveLeftPanelImpl(
     const hasFont16 = Boolean(font && font.loaded)
 
     const drawMsgText = (text: string, x: number, y: number, colorCode: D2ColorCode = 'gold', hex = '#e8c26b') => {
-      if (hasFont16 && font) {
-        font.drawText(ctx, text, x, y + 12, { font: 'font16', color: colorCode })
-      } else {
-        fillTextSafe(text, x, y + 12, hex)
-      }
+      if (hasFont16 && font) font.drawText(ctx, text, x, y + 12, { font: 'font16', color: colorCode })
+      else fillTextSafe(text, x, y + 12, hex)
     }
 
     drawMsgText(header, ox + 116, oy + 12, 'gold', '#e8c26b')

@@ -1,8 +1,6 @@
 import type { AutoPotionThresholds, D2WebPlugin, LocalizedText, PluginStatus } from '../../src/client/plugin-host/api.ts'
 
-type ThresholdKey = keyof AutoPotionThresholds
-
-const THRESHOLDS: readonly { readonly key: ThresholdKey; readonly label: LocalizedText; readonly options: readonly number[]; readonly default: number }[] = [
+const THRESHOLDS: readonly { readonly key: keyof AutoPotionThresholds; readonly label: LocalizedText; readonly options: readonly number[]; readonly default: number }[] = [
   { key: 'life', label: { zh: '生命低于时喝治疗药剂', en: 'Healing potion below life' }, options: [0, 30, 40, 50, 60, 70, 80], default: 50 },
   { key: 'rejuv', label: { zh: '生命低于时喝回复药剂', en: 'Rejuvenation below life' }, options: [0, 15, 20, 25, 30, 35], default: 25 },
   { key: 'mana', label: { zh: '法力低于时喝法力药剂', en: 'Mana potion below mana' }, options: [0, 10, 20, 30, 40, 50], default: 20 },
@@ -27,7 +25,7 @@ export const autoPotionPlugin: D2WebPlugin = {
     options: options.map((option) => ({ value: String(option), label: optionLabel(option) })),
   })),
   activate(ctx) {
-    const read = (key: ThresholdKey): number => {
+    const read = (key: keyof AutoPotionThresholds): number => {
       const value = Number(ctx.settings.get(key))
       return Number.isFinite(value) && value >= 0 ? value : (THRESHOLDS.find((t) => t.key === key)?.default ?? 0)
     }

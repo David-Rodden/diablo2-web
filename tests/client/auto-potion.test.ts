@@ -132,20 +132,12 @@ describe('belt reading', () => {
   })
 })
 
-const putInBelt = (world: ClientWorld, id: number, code: string, slot: number) =>
+const putItem = (world: ClientWorld, container: 'belt' | 'inventory', id: number, code: string, slot = 0) =>
   world.apply({
     type: 'ItemEvent',
     action: 0,
-    container: 'belt',
-    item: { id, itemId: id, code, rawCode: `${code} `, container: 'belt', action: 0, flags: 0x00200010, rawFlags: 0x00200010, gridX: slot, gridY: 0, x: slot, y: 0 } as unknown as ItemData,
-  })
-
-const putInInventory = (world: ClientWorld, id: number, code: string) =>
-  world.apply({
-    type: 'ItemEvent',
-    action: 0,
-    container: 'inventory',
-    item: { id, itemId: id, code, rawCode: `${code} `, container: 'inventory', action: 0, flags: 0x00200010, rawFlags: 0x00200010, gridX: 0, gridY: 0, x: 0, y: 0 } as unknown as ItemData,
+    container,
+    item: { id, itemId: id, code, rawCode: `${code} `, container, action: 0, flags: 0x00200010, rawFlags: 0x00200010, gridX: slot, gridY: 0, x: slot, y: 0 } as unknown as ItemData,
   })
 
 const createMapperSetup = () => {
@@ -165,8 +157,8 @@ const createMapperSetup = () => {
 describe('auto-potion in the command mapper', () => {
   it('drinks from the belt column holding the chosen potion', () => {
     const { world, mapper, drinks, setLife } = createMapperSetup()
-    putInBelt(world, 41, 'mp3', 0)
-    putInBelt(world, 42, 'hp2', 1)
+    putItem(world, 'belt', 41, 'mp3', 0)
+    putItem(world, 'belt', 42, 'hp2', 1)
     setLife(30)
     mapper.drinkPotionsIfLow(1_000)
     expect(drinks).toEqual([{ col: 1, toMerc: false }])
@@ -174,8 +166,8 @@ describe('auto-potion in the command mapper', () => {
 
   it('uses an inventory potion ahead of the belt', () => {
     const { world, mapper, drinks, used, setLife } = createMapperSetup()
-    putInBelt(world, 71, 'hp2', 0)
-    putInInventory(world, 72, 'hp2')
+    putItem(world, 'belt', 71, 'hp2', 0)
+    putItem(world, 'inventory', 72, 'hp2')
     setLife(30)
     mapper.drinkPotionsIfLow(1_000)
     expect([used, drinks]).toEqual([[72], []])
@@ -183,7 +175,7 @@ describe('auto-potion in the command mapper', () => {
 
   it('warns when the belt has no healing potions and clears the warning when disabled', () => {
     const { world, hudManager, mapper } = createMapperSetup()
-    putInBelt(world, 51, 'mp3', 0)
+    putItem(world, 'belt', 51, 'mp3', 0)
     mapper.drinkPotionsIfLow(1_000)
     expect(hudManager.potionShortage).toBe('life')
     mapper.autoPotionThresholds = null
@@ -194,7 +186,7 @@ describe('auto-potion in the command mapper', () => {
   it('stays idle in town', () => {
     const { world, hudManager, mapper, drinks, setLife } = createMapperSetup()
     world.apply({ type: 'LoadAct', act: 0, areaId: 1, mapSeed: 1 } as never)
-    putInBelt(world, 61, 'hp2', 0)
+    putItem(world, 'belt', 61, 'hp2', 0)
     setLife(10)
     mapper.drinkPotionsIfLow(1_000)
     expect([drinks, hudManager.potionShortage]).toEqual([[], null])

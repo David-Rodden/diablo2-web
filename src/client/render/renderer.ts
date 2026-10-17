@@ -1331,10 +1331,11 @@ export class SpriteRenderer {
       this.currentBlendMode = 'normal'
       applyGlBlendFunc(gl, gl.ONE ?? 1, gl.ONE_MINUS_SRC_ALPHA, gl.ONE ?? 1, gl.ONE_MINUS_SRC_ALPHA)
     }
-    if (this.sceneSize) (this.upscaler ??= new FsrUpscaler(gl)).bindScene(this.sceneSize.width, this.sceneSize.height)
+    const { sceneSize } = this
+    if (sceneSize) (this.upscaler ??= new FsrUpscaler(gl)).bindScene(sceneSize.width, sceneSize.height)
     else if (this.upscaler) gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    this.targetWidth = this.sceneSize?.width ?? gl.drawingBufferWidth ?? this.canvas.width ?? 800
-    this.targetHeight = this.sceneSize?.height ?? gl.drawingBufferHeight ?? this.canvas.height ?? 600
+    this.targetWidth = sceneSize?.width ?? gl.drawingBufferWidth ?? this.canvas.width ?? 800
+    this.targetHeight = sceneSize?.height ?? gl.drawingBufferHeight ?? this.canvas.height ?? 600
     gl.viewport(0, 0, this.targetWidth, this.targetHeight)
     gl.clearColor(clear[0], clear[1], clear[2], 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
@@ -1697,8 +1698,7 @@ export class SpriteRenderer {
       this.cachedCameraY = camY
     }
 
-    const vpWidth = this.targetWidth
-    const vpHeight = this.targetHeight
+    const { targetWidth: vpWidth, targetHeight: vpHeight } = this
     if (vpWidth !== this.cachedViewportWidth || vpHeight !== this.cachedViewportHeight) {
       gl.uniform2f(this.uniformViewport, vpWidth, vpHeight)
       this.cachedViewportWidth = vpWidth

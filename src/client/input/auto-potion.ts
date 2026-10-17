@@ -3,7 +3,6 @@ import { CANONICAL_POTION_SPECS } from '../../common/items/misc-items.ts'
 const BELT_COLUMNS = 4
 const FRAME_MS = 40
 const DRINK_GAP_MS = 1_000
-const REJUV_CODES: readonly string[] = ['rvs', 'rvl']
 
 export interface AutoPotionThresholds {
   readonly life: number
@@ -31,18 +30,19 @@ export type PotionDrink = Potion & { readonly kind: PotionKind }
 export type PotionShortage = 'life' | 'mana' | null
 
 const spec = (code: string) => CANONICAL_POTION_SPECS[code]
-const isRejuv = (p: Potion) => REJUV_CODES.includes(p.code)
+const isRejuv = (p: Potion) => /^rv[sl]$/.test(p.code)
 const isHealing = (p: Potion) => /^hp[1-5]$/.test(p.code)
 const isMana = (p: Potion) => /^mp[1-5]$/.test(p.code)
 const inBelt = (p: Potion) => 'column' in p
 const percent = (value: number, max: number) => (max > 0 ? (value * 100) / max : 100)
+const normalizeCode = (code: string) => code.trim().toLowerCase()
 
 export const inventoryPotions = (items: Iterable<{ readonly id: number; readonly code: string }>): Potion[] =>
-  [...items].map((item) => ({ itemId: item.id, code: item.code.trim().toLowerCase() })).filter((p) => isHealing(p) || isMana(p) || isRejuv(p))
+  [...items].map((item) => ({ itemId: item.id, code: normalizeCode(item.code) })).filter((p) => isHealing(p) || isMana(p) || isRejuv(p))
 
 export const bottomBeltPotions = (items: Iterable<{ readonly code: string; readonly gridX?: number; readonly x?: number }>): Potion[] =>
   [...items]
-    .map((item) => ({ slot: item.gridX ?? item.x ?? 0, code: item.code.trim().toLowerCase() }))
+    .map((item) => ({ slot: item.gridX ?? item.x ?? 0, code: normalizeCode(item.code) }))
     .filter(({ slot }) => slot >= 0 && slot < BELT_COLUMNS * BELT_COLUMNS)
     .sort((a, b) => a.slot - b.slot)
     .filter((item, index, sorted) => sorted.findIndex((other) => other.slot % BELT_COLUMNS === item.slot % BELT_COLUMNS) === index)

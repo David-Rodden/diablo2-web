@@ -588,42 +588,11 @@ describe('BUILTIN_PLUGINS Registry & Built-In Plugin Lifecycles', () => {
         isEnabled: () => false,
         setEnabled() {},
       },
-      dragInteract: {
-        isEnabled: () => false,
-        setEnabled() {},
-      },
-      smoothText: {
-        isEnabled: () => false,
-        setEnabled() {},
-      },
-      stashDepositAll: {
-        isEnabled: () => false,
-        setEnabled() {},
-      },
-      xpBar: {
-        isEnabled: () => false,
-        setEnabled() {},
-      },
-      autoGoldPickup: {
-        isEnabled: () => false,
-        setEnabled() {},
-      },
-      smoothUpscale: {
-        isEnabled: () => false,
-        setEnabled() {},
-      },
-      upgradeHints: {
-        isEnabled: () => false,
-        setEnabled() {},
-      },
-      autoCombat: {
-        getKey: () => null,
-        setKey() {},
-      },
-      autoPotion: {
-        getThresholds: () => null,
-        setThresholds() {},
-      },
+      ...Object.fromEntries(
+        ['dragInteract', 'smoothText', 'stashDepositAll', 'xpBar', 'autoGoldPickup', 'smoothUpscale', 'upgradeHints'].map((name) => [name, { isEnabled: () => false, setEnabled() {} }]),
+      ),
+      autoCombat: { getKey: () => null, setKey() {} },
+      autoPotion: { getThresholds: () => null, setThresholds() {} },
     })
     await host.start()
 

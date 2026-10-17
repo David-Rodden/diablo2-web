@@ -12,11 +12,7 @@ const ITEM_ID = 701
 function createSetup(dragInteractMode: boolean, areaId = 2) {
   const world = new ClientWorld()
   world.apply({ type: 'LoadAct', act: 0, mapSeed: 0x11223344, areaId })
-  world.apply({
-    type: 'UnitAssign',
-    unit: { unitType: 0, id: 1, classId: 1, name: 'Hero', x: 100, y: 100 },
-    isSelf: true,
-  })
+  world.apply({ type: 'UnitAssign', unit: { unitType: 0, id: 1, classId: 1, name: 'Hero', x: 100, y: 100 }, isSelf: true })
   world.getUnit('player', 1)!.mode = 3
   const hudManager = new HudManager()
   hudManager.resize(800, 600)
@@ -25,14 +21,7 @@ function createSetup(dragInteractMode: boolean, areaId = 2) {
   camera.snapTo(100, 100)
   const sent: ClientCommand[] = []
   const hudModel = new HudModel({ world, hudManager, predictor, onCommand: (cmd) => sent.push(cmd) })
-  const mapper = new CommandMapper({
-    world,
-    camera,
-    hudManager,
-    hudModel,
-    predictor,
-    sendCommand: (cmd) => sent.push(cmd),
-  })
+  const mapper = new CommandMapper({ world, camera, hudManager, hudModel, predictor, sendCommand: (cmd) => sent.push(cmd) })
   mapper.dragInteractMode = dragInteractMode
   const pressOnGroundThenDragTo = (subX: number, subY: number, nowMs: number) => {
     const ground = camera.subtileToScreen(100, 94)
@@ -43,13 +32,10 @@ function createSetup(dragInteractMode: boolean, areaId = 2) {
     mapper.tick(nowMs + 100)
   }
   const spawnMonster = (classId: number, x: number, y: number) =>
-    world.apply({
-      type: 'UnitAssign',
-      unit: { unitType: 1, id: MONSTER_ID, classId, name: 'Monster', x, y, lifePct: 128, mode: 1 },
-    })
+    world.apply({ type: 'UnitAssign', unit: { unitType: 1, id: MONSTER_ID, classId, name: 'Monster', x, y, lifePct: 128, mode: 1 } })
   const spawnItem = (x: number, y: number) =>
     world.apply({ type: 'UnitAssign', unit: { unitType: 4, id: ITEM_ID, classId: 10, name: 'Gold', x, y } })
-  const targets = (id: number) => sent.filter((c) => JSON.stringify(c).includes(`"id":${id}`) || JSON.stringify(c).includes(`"itemId":${id}`))
+  const targets = (id: number) => sent.filter((c) => [`"id":${id}`, `"itemId":${id}`].some((needle) => JSON.stringify(c).includes(needle)))
   return { mapper, sent, pressOnGroundThenDragTo, spawnMonster, spawnItem, targets }
 }
 
@@ -74,9 +60,7 @@ describe('drag-interact mode', () => {
     s.pressOnGroundThenDragTo(102, 100, 1000)
     s.mapper.tick(1200)
     s.mapper.tick(1300)
-    expect(s.sent.filter((c) => c.type === 'ItemPickup')).toEqual([
-      { type: 'ItemPickup', itemId: ITEM_ID, toCursor: false },
-    ])
+    expect(s.sent.filter((c) => c.type === 'ItemPickup')).toEqual([{ type: 'ItemPickup', itemId: ITEM_ID, toCursor: false }])
   })
 
   it('walks toward a far item instead of picking it up from range', () => {

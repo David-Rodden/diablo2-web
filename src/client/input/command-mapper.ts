@@ -390,7 +390,12 @@ export class CommandMapper {
   }
 
   private selfTickPosition(): { readonly x: number; readonly y: number } {
-    return this.predictor ? this.predictor.getSnapshot() : this.world.self
+    return this.predictor?.getSnapshot() ?? this.world.self
+  }
+
+  private distanceFromSelf(): (unit: ClientUnit) => number {
+    const self = this.selfTickPosition()
+    return (unit) => Math.hypot(unit.x - self.x, unit.y - self.y)
   }
 
   private isAwaitingInteractionWith(unit: ClientUnit): boolean {
@@ -408,8 +413,7 @@ export class CommandMapper {
     if (hovered === null) return null
     if (this.isAwaitingInteractionWith(hovered)) return 'wait'
     if (hovered.unitType === 'monster') return this.isTownOrInteractiveNpc(hovered) || this.isFriendlySummonOrPet(hovered) ? null : hovered
-    const self = this.selfTickPosition()
-    if (hovered.unitType !== 'item' || this.dragPickupAttempts.has(hovered.id) || Math.hypot(hovered.x - self.x, hovered.y - self.y) > ITEM_PICKUP_REACH_SUBTILES) return null
+    if (hovered.unitType !== 'item' || this.dragPickupAttempts.has(hovered.id) || this.distanceFromSelf()(hovered) > ITEM_PICKUP_REACH_SUBTILES) return null
     this.dragPickupAttempts.add(hovered.id)
     return hovered
   }
@@ -417,9 +421,8 @@ export class CommandMapper {
   private resolveLeftHoldAction(screenX: number, screenY: number, vanillaTarget: () => ClientUnit | null): { readonly unit: ClientUnit | null } | null {
     const target = this.dragInteractMode ? this.resolveDragHoldTarget(screenX, screenY) : vanillaTarget()
     if (target === 'wait') return null
-    const bypassesGate = this.dragInteractMode && target !== null
-    const gate = () => clickGate113c({ phase: 'hold', pressKind: this.pressKind, targetType: target?.unitType ?? null, selfMode: this.getSelfPlayerMode() })
-    return bypassesGate || gate().pass ? { unit: target } : null
+    const passes = (this.dragInteractMode && target !== null) || clickGate113c({ phase: 'hold', pressKind: this.pressKind, targetType: target?.unitType ?? null, selfMode: this.getSelfPlayerMode() }).pass
+    return passes ? { unit: target } : null
   }
 
   pickUpNearbyGold(nowMs: number): void {
@@ -427,8 +430,7 @@ export class CommandMapper {
     ;[...this.goldRetryAt.keys()].filter((id) => !ground.has(id)).forEach((id) => this.goldRetryAt.delete(id))
     const { gold, level } = this.world.self
     if (!this.autoGoldPickup || this.world.isDead || this.isInWorldInteraction() || gold >= level * CARRIED_GOLD_PER_LEVEL) return
-    const self = this.selfTickPosition()
-    const distance = (unit: ClientUnit) => Math.hypot(unit.x - self.x, unit.y - self.y)
+    const distance = this.distanceFromSelf()
     const nearest = [...ground.values()]
       .filter((item) => item.code.trim() === 'gld' && (this.goldRetryAt.get(item.id) ?? 0) <= nowMs)
       .map((item) => this.world.getUnit('item', item.id))
@@ -496,8 +498,7 @@ export class CommandMapper {
   runAutoCombat(nowMs: number): void {
     if (!this.autoCombatOn || this.leftMouseDown || this.world.isDead || this.isInWorldInteraction() || nowMs - this.lastAutoCombatMs < AUTO_COMBAT_REPEAT_MS) return
     const target = this.resolveAutoCombatTarget()
-    if (target === null) return
-    if (this.isAwaitingHitResult(target, nowMs)) return
+    if (target === null || this.isAwaitingHitResult(target, nowMs)) return
     const freshTarget = target.id !== this.autoCombatTargetId
     this.autoCombatTargetId = target.id
     this.lastAutoCombatMs = nowMs
@@ -531,8 +532,7 @@ export class CommandMapper {
     this.centerCameraOnShownSelf()
     const current = this.autoCombatTargetId === null ? undefined : this.world.getUnit('monster', this.autoCombatTargetId)
     if (current !== undefined && this.isAutoCombatTarget(current)) return current
-    const self = this.selfTickPosition()
-    const distance = (unit: ClientUnit) => Math.hypot(unit.x - self.x, unit.y - self.y)
+    const distance = this.distanceFromSelf()
     return [...this.world.units.values()].filter((unit) => this.isAutoCombatTarget(unit)).sort((a, b) => distance(a) - distance(b))[0] ?? null
   }
 
@@ -553,8 +553,8 @@ export class CommandMapper {
   }
 
   private showHoveredMonster(id: number | null): void {
-    const engaged = this.engagedMonsterId !== null && (this.leftMouseDown || this.autoCombatOn) && this.isEngagedMonsterAlive()
-    if (!engaged) this.hudModel?.setHoveredMonster(id)
+    const isShowingEngaged = (this.leftMouseDown || this.autoCombatOn) && this.isEngagedMonsterAlive()
+    if (!isShowingEngaged) this.hudModel?.setHoveredMonster(id)
   }
 
   get autoCombatKey(): string | null {

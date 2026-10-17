@@ -138,6 +138,11 @@ export interface PluginHostOptions {
 const TOGGLE_PORT_NAMES = ['quickCast', 'dragInteract', 'smoothText', 'stashDepositAll', 'xpBar', 'autoGoldPickup', 'smoothUpscale', 'upgradeHints'] as const
 type TogglePortName = (typeof TOGGLE_PORT_NAMES)[number]
 
+const requireWiredPort = <T>(port: T | null, name: string, pluginId: string): T => {
+  if (!port) throw new Error(`[plugin-host] ${name} port is not wired by the composition root (plugin "${pluginId}")`)
+  return port
+}
+
 interface InternalPluginRecord {
   readonly plugin: D2WebPlugin
   instance: PluginInstance | null
@@ -514,37 +519,32 @@ export class PluginHost {
       isEnabled: () => claims.size > 0,
       setEnabled: (enabled) => {
         if (isDisposed()) return
-        if (!port) throw new Error(`[plugin-host] ${name} port is not wired by the composition root (plugin "${pluginId}")`)
+        const wiredPort = requireWiredPort(port, name, pluginId)
         const release = (): void => {
           record.disposers.delete(release)
           claims.delete(pluginId)
-          if (claims.size === 0) port.setEnabled(false)
+          if (claims.size === 0) wiredPort.setEnabled(false)
         }
         if (!enabled) return release()
         if (claims.has(pluginId)) return
         claims.add(pluginId)
         record.disposers.add(release)
-        port.setEnabled(true)
+        wiredPort.setEnabled(true)
       },
     }
   }
 
   private createAutoCombatPort(pluginId: string): PluginAutoCombatPort {
     const port = this.autoCombatPort
-    const requirePort = (): PluginAutoCombatPort => {
-      if (!port) throw new Error(`[plugin-host] autoCombat port is not wired by the composition root (plugin "${pluginId}")`)
-      return port
-    }
-    return { getKey: () => port?.getKey() ?? null, setKey: (key) => requirePort().setKey(key) }
+    return { getKey: () => port?.getKey() ?? null, setKey: (key) => requireWiredPort(port, 'autoCombat', pluginId).setKey(key) }
   }
 
   private createAutoPotionPort(pluginId: string): PluginAutoPotionPort {
     const port = this.autoPotionPort
-    const requirePort = (): PluginAutoPotionPort => {
-      if (!port) throw new Error(`[plugin-host] autoPotion port is not wired by the composition root (plugin "${pluginId}")`)
-      return port
+    return {
+      getThresholds: () => port?.getThresholds() ?? null,
+      setThresholds: (thresholds) => requireWiredPort(port, 'autoPotion', pluginId).setThresholds(thresholds),
     }
-    return { getThresholds: () => port?.getThresholds() ?? null, setThresholds: (thresholds) => requirePort().setThresholds(thresholds) }
   }
 
   private createTogglePorts(record: InternalPluginRecord, isDisposed: () => boolean): Record<TogglePortName, PluginTogglePort> {

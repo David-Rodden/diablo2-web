@@ -7,18 +7,16 @@ const LINE = 15
 describe('LineGlide', () => {
   it('starts lines where they were when the oldest line scrolls off, then eases to rest', () => {
     const glide = new LineGlide()
+    const scrolled = (nowMs: number) => glide.update(['a', 'b', 'c', 'd'], 1, 3, LINE, nowMs)
     expect(glide.update(['a', 'b', 'c'], 0, 3, LINE, 0)).toBe(0)
-    const first = glide.update(['a', 'b', 'c', 'd'], 1, 3, LINE, 16)
+    const first = scrolled(16)
     expect(first).toBe(LINE)
-    const later = glide.update(['a', 'b', 'c', 'd'], 1, 3, LINE, 66)
+    const later = scrolled(66)
     expect(later).toBeGreaterThan(0)
     expect(later).toBeLessThan(first)
     let t = 66
-    while (glide.isMoving(t)) {
-      t += 16
-      glide.update(['a', 'b', 'c', 'd'], 1, 3, LINE, t)
-    }
-    expect(glide.update(['a', 'b', 'c', 'd'], 1, 3, LINE, t + 16)).toBe(0)
+    while (glide.isMoving(t)) scrolled((t += 16))
+    expect(scrolled(t + 16)).toBe(0)
     expect(t).toBeLessThan(600)
   })
 

@@ -13,13 +13,17 @@ export const devicePixelRatioOrOne = (): number =>
 export const crispCanvasScale = (canvas: HTMLCanvasElement, nativeWidth: number, nativeHeight: number): number =>
   crispPixelScale(Math.max(canvas.clientWidth / nativeWidth, canvas.clientHeight / nativeHeight) * devicePixelRatioOrOne())
 
+const resizeBackingStore = (canvas: HTMLCanvasElement, width: number, height: number): void => {
+  if (canvas.width !== width || canvas.height !== height) Object.assign(canvas, { width, height })
+}
+
 export const syncCrispBackingStore = (canvas: HTMLCanvasElement, nativeWidth: number, nativeHeight: number): number => {
   const scale = crispCanvasScale(canvas, nativeWidth, nativeHeight)
-  if (canvas.width !== nativeWidth * scale || canvas.height !== nativeHeight * scale) Object.assign(canvas, { width: nativeWidth * scale, height: nativeHeight * scale })
+  resizeBackingStore(canvas, nativeWidth * scale, nativeHeight * scale)
   return scale
 }
 
-export const syncPhysicalBackingStore = (canvas: HTMLCanvasElement): void => {
-  const [width, height] = [canvas.clientWidth, canvas.clientHeight].map((css) => Math.max(1, Math.round(css * devicePixelRatioOrOne())))
-  if (canvas.width !== width || canvas.height !== height) Object.assign(canvas, { width, height })
-}
+const physicalPixels = (css: number): number => Math.max(1, Math.round(css * devicePixelRatioOrOne()))
+
+export const syncPhysicalBackingStore = (canvas: HTMLCanvasElement): void =>
+  resizeBackingStore(canvas, physicalPixels(canvas.clientWidth), physicalPixels(canvas.clientHeight))

@@ -34,8 +34,8 @@ const range = (length: number): number[] => Array.from({ length }, (_, i) => i)
 
 const codeOf = (item: { readonly code?: string }): string => (item.code ?? '').trim().toLowerCase()
 
-const sizeOf = (code: string): { readonly w: number; readonly h: number } => {
-  const meta = getCanonicalItemDataTables().getItemBaseMeta(code)
+const sizeOf = (item: { readonly code?: string }): { readonly w: number; readonly h: number } => {
+  const meta = getCanonicalItemDataTables().getItemBaseMeta(codeOf(item))
   return { w: meta?.invWidth ?? 1, h: meta?.invHeight ?? 1 }
 }
 
@@ -60,9 +60,8 @@ export async function depositAllToStash(host: StashDepositHost, isStashOpen: () 
   let moved = 0
   for (const item of candidates) {
     if (!isStashOpen() || containers.cursor !== null) break
-    const { w, h } = sizeOf(codeOf(item))
-    const occupied = [...containers.stash.values()].map((s) => ({ col: s.gridX, row: s.gridY, ...sizeOf(codeOf(s)) }))
-    const slot = findFreeSlot(occupied, w, h)
+    const { w, h } = sizeOf(item)
+    const slot = findFreeSlot([...containers.stash.values()].map((s) => ({ col: s.gridX, row: s.gridY, ...sizeOf(s) })), w, h)
     if (slot === null) continue
     host.pickupItemToCursor(item.id)
     if (!(await waitFor(() => containers.cursor?.id === item.id))) break

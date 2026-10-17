@@ -698,12 +698,13 @@ export function renderHudFrame(
 
   // 2b. Top-Left Real-Time Chat & Event Message Stream Overlay (`D2Client.dll` `0x6fb2b730` `MSG_DrawChatOverlay`)
   hud.renderChatOverlay(ctx, profile.width, nowMs)
-  if (hud.autoCombatBadge !== null) drawAutoCombatBadge(ctx, hud.font, hud.autoCombatBadge, barOffsetX, barOffsetY, hud.lang === 'ENG' ? 'ENG' : 'CHI')
-  if (hud.potionShortage !== null) drawPotionShortageBadge(ctx, hud.font, hud.potionShortage, barOffsetX, barOffsetY, hud.lang === 'ENG' ? 'ENG' : 'CHI')
+  const overlayLang = hud.lang === 'ENG' ? 'ENG' : 'CHI'
+  if (hud.autoCombatBadge !== null) drawAutoCombatBadge(ctx, hud.font, hud.autoCombatBadge, barOffsetX, barOffsetY, overlayLang)
+  if (hud.potionShortage !== null) drawPotionShortageBadge(ctx, hud.font, hud.potionShortage, barOffsetX, barOffsetY, overlayLang)
   if (hud.showXpBar && hud.leftPanel === 'none' && hud.rightPanel === 'none' && !hud.worldPanels.escapeMenuOpen) {
     const xpState = internal.buildControlBarState()
     hud.xpRate.record(xpState.xp, nowMs)
-    drawXpBar(ctx, hud.font, xpState, profile.width, hud.lang === 'ENG' ? 'ENG' : 'CHI', { perHour: hud.xpRate.perHour(nowMs), mouseX: hud.mouseX, mouseY: hud.mouseY })
+    drawXpBar(ctx, hud.font, xpState, profile.width, overlayLang, { perHour: hud.xpRate.perHour(nowMs), mouseX: hud.mouseX, mouseY: hud.mouseY })
   }
 
   // 3..6. Bottom Control Panel, Globes, Belt, and Skill Hotkeys (translated by barOffsetX, barOffsetY)

@@ -1534,9 +1534,7 @@ export class HudModel implements HudCommandSink {
   private stashDepositRun: Promise<StashDepositResult> | null = null
 
   depositAllToStash(): Promise<StashDepositResult> {
-    return (this.stashDepositRun ??= depositAllToStash(this, () => this.hudManager?.leftPanel === 'stash').finally(() => {
-      this.stashDepositRun = null
-    }))
+    return (this.stashDepositRun ??= depositAllToStash(this, () => this.hudManager?.leftPanel === 'stash').finally(() => void (this.stashDepositRun = null)))
   }
 
   /** Gold dialog mode 4: `0x4F ClickButton` 0x13 WithdrawGold. Non-positive amounts send nothing. */
