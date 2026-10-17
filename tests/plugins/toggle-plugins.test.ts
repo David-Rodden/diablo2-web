@@ -3,6 +3,7 @@ import {
   containsCjkCharacters,
   validatePluginRegistry,
   type AutoPotionThresholds,
+  type ItemInfoConfig,
   type D2WebPlugin,
   type PluginSessionView,
   type PluginTogglePort,
@@ -19,6 +20,8 @@ import { autoGoldPickupPlugin } from '../../plugins/auto-gold-pickup/index.ts'
 import { autoCombatPlugin } from '../../plugins/auto-combat/index.ts'
 import { autoPotionPlugin } from '../../plugins/auto-potion/index.ts'
 import { upgradeHintsPlugin } from '../../plugins/upgrade-hints/index.ts'
+import { itemInfoPlugin } from '../../plugins/item-info/index.ts'
+import { monsterResistsPlugin } from '../../plugins/monster-resists/index.ts'
 
 const memoryStorage = () => {
   const map = new Map<string, string>()
@@ -54,6 +57,7 @@ describe.each([
   { plugin: experienceBarPlugin, portName: 'xpBar', defaultOn: true },
   { plugin: autoGoldPickupPlugin, portName: 'autoGoldPickup', defaultOn: false },
   { plugin: upgradeHintsPlugin, portName: 'upgradeHints', defaultOn: true },
+  { plugin: monsterResistsPlugin, portName: 'monsterResists', defaultOn: true },
 ])('$plugin.id toggle plugin', ({ plugin, portName, defaultOn }) => {
   const createToggleHost = (port: PluginTogglePort | null) => createHost(plugin, { [portName]: port })
 
@@ -116,6 +120,25 @@ describe('auto-potion plugin', () => {
   it('reports an error when the port is not wired', async () => {
     const host = await startEnabled(createHost(autoPotionPlugin), 'auto-potion')
     expect(host.getStatus('auto-potion').level).toBe('error')
+    await host.destroy()
+  })
+})
+
+describe('item-info plugin', () => {
+  it('applies its settings to the port, follows changes and switches off on teardown', async () => {
+    let config: ItemInfoConfig | null = null
+    const host = await startEnabled(createHost(itemInfoPlugin, { itemInfo: { getConfig: () => config, setConfig: (c) => void (config = c) } }), 'item-info')
+    expect([config, host.getStatus('item-info').text.en]).toEqual([{ itemLevel: true, labelDetails: true, alwaysShow: false, lootFilter: 'off' }, 'Labels on Alt · filter off'])
+    host.setSetting('item-info', 'alwaysShow', true)
+    host.setSetting('item-info', 'lootFilter', 'junk')
+    expect([config, host.getStatus('item-info').text.en]).toEqual([{ itemLevel: true, labelDetails: true, alwaysShow: true, lootFilter: 'junk' }, 'Labels always on · hiding junk'])
+    await host.destroy()
+    expect(config).toBeNull()
+  })
+
+  it('reports an error when the port is not wired', async () => {
+    const host = await startEnabled(createHost(itemInfoPlugin), 'item-info')
+    expect(host.getStatus('item-info').level).toBe('error')
     await host.destroy()
   })
 })

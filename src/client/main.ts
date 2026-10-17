@@ -579,6 +579,8 @@ export async function startPlayApp(options?: {
     autoGoldPickup: togglePortFor(session.commandMapper, 'autoGoldPickup'),
     smoothUpscale: togglePortFor(smoothUpscaleSetting, 'enabled'),
     upgradeHints: togglePortFor(hudManager, 'upgradeHints'),
+    monsterResists: togglePortFor(hudManager.worldPanels, 'showMonsterResists'),
+    itemInfo: { getConfig: () => hudManager.itemInfo, setConfig: (config) => hudManager.setItemInfo(config) },
     autoCombat: { getKey: () => session.commandMapper.autoCombatKey, setKey: (key) => void (session.commandMapper.autoCombatKey = key) },
     autoPotion: {
       getThresholds: () => session.commandMapper.autoPotionThresholds,

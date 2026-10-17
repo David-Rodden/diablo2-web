@@ -589,10 +589,11 @@ describe('BUILTIN_PLUGINS Registry & Built-In Plugin Lifecycles', () => {
         setEnabled() {},
       },
       ...Object.fromEntries(
-        ['dragInteract', 'smoothText', 'stashDepositAll', 'xpBar', 'autoGoldPickup', 'smoothUpscale', 'upgradeHints'].map((name) => [name, { isEnabled: () => false, setEnabled() {} }]),
+        ['dragInteract', 'smoothText', 'stashDepositAll', 'xpBar', 'autoGoldPickup', 'smoothUpscale', 'upgradeHints', 'monsterResists'].map((name) => [name, { isEnabled: () => false, setEnabled() {} }]),
       ),
       autoCombat: { getKey: () => null, setKey() {} },
       autoPotion: { getThresholds: () => null, setThresholds() {} },
+      itemInfo: { getConfig: () => null, setConfig() {} },
     })
     await host.start()
 

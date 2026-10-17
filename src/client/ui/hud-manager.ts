@@ -39,6 +39,8 @@ import { upgradeVerdict, type BuildProfile, type UpgradeVerdict } from '../../co
 import { XpRateTracker } from './xp-bar.ts'
 import { onlineItemDataToUiInventoryItem } from '../../common/items/item-bridge.ts'
 import type { ItemData } from '../../netproto/index.ts'
+import { groundLabelDetails, isLootHidden, type ItemInfoConfig } from './ground-item-info.ts'
+import { upgradeSuffix } from './upgrade-marker.ts'
 import { D2_EXPERIENCE_TABLE_99 } from '../../common/skills/formulas.ts'
 import { CharacterSheetPanel, type BaseStatKey } from './character-sheet.ts'
 import { SkillTreePanel } from './skill-tree-panel.ts'
@@ -391,7 +393,14 @@ export class HudManager {
     }
   }
   isRunning = true
-  showGroundLabels = false
+  itemInfo: ItemInfoConfig | null = null
+  private altGroundLabels = false
+  get showGroundLabels(): boolean {
+    return this.altGroundLabels || Boolean(this.itemInfo?.alwaysShow)
+  }
+  set showGroundLabels(shown: boolean) {
+    this.altGroundLabels = shown
+  }
   /** Screen-space (800x600 viewport) ground item label boxes laid out for the current frame. */
   groundItemLabelBoxes: readonly GroundItemLabelBox[] = []
   /** Screen-space (logical viewport) Diablo III-style loot beams for Unique/Set ground items (Issue #957). */
@@ -1768,12 +1777,31 @@ export class HudManager {
     return this.upgradeVerdicts.get(item) ?? null
   }
 
-  groundUpgradeVerdict(unitId: number): UpgradeVerdict | null {
-    const data = this.upgradeHints ? this.resolveGroundItem?.(unitId) : undefined
-    if (data === undefined) return null
+  setItemInfo(config: ItemInfoConfig | null): void {
+    this.itemInfo = config
+    this.worldPanels.showItemLevel = Boolean(config?.itemLevel)
+  }
+
+  private groundUiItem(data: ItemData): UiInventoryItem {
     const item = this.groundUiItems.get(data) ?? onlineItemDataToUiInventoryItem(data)
     this.groundUiItems.set(data, item)
-    return this.upgradeVerdictFor(item)
+    return item
+  }
+
+  groundUpgradeVerdict(unitId: number): UpgradeVerdict | null {
+    const data = this.upgradeHints ? this.resolveGroundItem?.(unitId) : undefined
+    return data ? this.upgradeVerdictFor(this.groundUiItem(data)) : null
+  }
+
+  groundLabelSuffix(unitId: number, isEn: boolean): string {
+    const data = this.itemInfo?.labelDetails ? this.resolveGroundItem?.(unitId) : undefined
+    return (data ? groundLabelDetails(data, isEn) : '') + upgradeSuffix(this.groundUpgradeVerdict(unitId))
+  }
+
+  hidesGroundItem(unitId: number): boolean {
+    const filter = this.itemInfo?.lootFilter ?? 'off'
+    const data = filter === 'off' ? undefined : this.resolveGroundItem?.(unitId)
+    return data !== undefined && isLootHidden(data, this.groundUiItem(data).allowedSlots.length > 0, filter)
   }
 
   private buildControlBarState() {

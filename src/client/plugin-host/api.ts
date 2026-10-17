@@ -20,6 +20,7 @@ import {
 } from '../scene/lighting-presets.ts'
 import type { OnlineSession } from '../session/online-session.ts'
 import type { AutoPotionThresholds } from '../input/auto-potion.ts'
+import type { ItemInfoConfig, LootFilter } from '../ui/ground-item-info.ts'
 import {
   VALID_AUTOMAP_REVEAL_MODES,
   VALID_LIGHTING_PRESETS,
@@ -223,7 +224,12 @@ export interface PluginAutoCombatPort {
   setKey(key: string | null): void
 }
 
-export type { AutoPotionThresholds }
+export type { AutoPotionThresholds, ItemInfoConfig, LootFilter }
+
+export interface PluginItemInfoPort {
+  getConfig(): ItemInfoConfig | null
+  setConfig(config: ItemInfoConfig | null): void
+}
 
 export interface PluginAutoPotionPort {
   getThresholds(): AutoPotionThresholds | null
@@ -320,6 +326,8 @@ export interface PluginContext {
   readonly autoGoldPickup: PluginTogglePort
   readonly smoothUpscale: PluginTogglePort
   readonly upgradeHints: PluginTogglePort
+  readonly monsterResists: PluginTogglePort
+  readonly itemInfo: PluginItemInfoPort
   readonly autoCombat: PluginAutoCombatPort
   readonly autoPotion: PluginAutoPotionPort
   readonly lang: {

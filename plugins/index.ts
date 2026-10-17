@@ -13,9 +13,12 @@ import { experienceBarPlugin } from './experience-bar/index.ts'
 import { extendedViewportsPlugin } from './extended-viewports/index.ts'
 import { groundItemBeamPlugin } from './ground-item-beam/index.ts'
 import { hudEnhancementsPlugin } from './hud-enhancements/index.ts'
+import { itemInfoPlugin } from './item-info/index.ts'
 import { killStatsPlugin } from './kill-stats/index.ts'
+import { monsterResistsPlugin } from './monster-resists/index.ts'
 import { nextGamePlugin } from './next-game/index.ts'
 import { quickCastPlugin } from './quick-cast/index.ts'
+import { runTimerPlugin } from './run-timer/index.ts'
 import { smoothTextPlugin } from './smooth-text/index.ts'
 import { smoothUpscalePlugin } from './smooth-upscale/index.ts'
 import { stashDepositAllPlugin } from './stash-deposit-all/index.ts'
@@ -39,4 +42,7 @@ export const BUILTIN_PLUGINS: readonly D2WebPlugin[] = [
   autoCombatPlugin,
   autoPotionPlugin,
   upgradeHintsPlugin,
+  itemInfoPlugin,
+  monsterResistsPlugin,
+  runTimerPlugin,
 ]

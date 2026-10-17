@@ -330,6 +330,8 @@ export class WorldPanelsHud {
     return getStashGoldLimit(resolvedLevel)
   }
   stashDepositAllEnabled = false
+  showItemLevel = false
+  showMonsterResists = false
   upgradeVerdictFor: (item: UiInventoryItem) => UpgradeVerdict | null = () => null
   cubeTransmuteCount = 0
   escapeMenuOpen = false
